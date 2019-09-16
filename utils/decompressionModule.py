@@ -13,6 +13,7 @@ import time
 
 class DecompressionModule:
   def __init__(self):
+
     self.vid_ = cv2.VideoCapture()
     self.image_matrix = None
     self.video_stats = {} #This will keep data of all the videos that have been parsed.. will not keep the image matrix only meta-data
