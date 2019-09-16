@@ -28,7 +28,7 @@ class ClusterModule:
 
 
 if __name__ == "__main__":
-  from eva_storage.caeNetwork import CAENetwork
+  from eva_storage.UNet import CAENetwork
   from eva_storage.videoInputModule import VideoInputModule
   import os
   eva_dir = os.path.abspath('../')
