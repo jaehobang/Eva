@@ -15,6 +15,7 @@ import torch.nn as nn
 import argparse
 
 from eva_storage.models.Autoencoder import Autoencoder
+from sklearn.neighbors import NearestNeighbors
 
 
 
@@ -34,6 +35,8 @@ class IndexingModule:
         self.patch_width = 32
         self.patch_height = 32
         self.max_patch_count = 10
+
+        self.knn = NearestNeighbors(n_neighbors=args.neighbors)
         self.model = Autoencoder()
         self.dataloader = None
 
@@ -67,13 +70,14 @@ class IndexingModule:
                                                                                                     -1).cpu().detach().numpy()
 
         # train for closest images using nearest neighbour
-        from sklearn.neighbors import NearestNeighbors
-        knn = NearestNeighbors(n_neighbors=args.neighbors).fit(patches_compressed)
 
+
+        self.knn.fit(patches_compressed)
         # Apply KNN and show the retrived images from test set
-        distances, indices = knn.kneighbors(patches_compressed)
+        distances, indices = self.knn.kneighbors(patches_compressed)
 
         patches = patches.astype(np.uint8)
+
 
 
     def _trainNetwork(self, patches, patch_count_list):
