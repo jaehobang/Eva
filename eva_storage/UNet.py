@@ -40,15 +40,19 @@ class UNet:
         :return:
         """
 
+
         # we assume the data is not normalized...
         assert(images.dtype == np.uint8)
         assert(segmented_images.dtype == np.uint8)
 
-        images /= 255.0
-        train_data = torch.from_numpy(images).float()
+        images_normalized = np.copy(images)
+        images_normalized = images_normalized.astype(np.float)
+
+        images_normalized /= 255.0
+        train_data = torch.from_numpy(images_normalized)
         train_data = train_data.permute(0,3,1,2)
 
-        segmented_images /= 255.0
+        segmented_images /= 255
         seg_data = torch.from_numpy(segmented_images).float()
         seg_data = seg_data.unsqueeze_(-1)
         seg_data = seg_data.permute(0,3,1,2)

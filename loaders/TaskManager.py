@@ -14,10 +14,10 @@ class TaskManager():
     def call_color(self, image, img_bboxes):
         colors = []
         for bbox in img_bboxes:
-            left = bbox[0]
-            top = bbox[1]
-            right = bbox[2]
-            bottom = bbox[3]
+            top = bbox[0]
+            left = bbox[1]
+            bottom = bbox[2]
+            right = bbox[3]
             #image is already going to be an array
 
             img_to_pass = image[top:bottom,left:right,:]

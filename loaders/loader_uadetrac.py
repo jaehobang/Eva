@@ -173,18 +173,18 @@ class LoaderUADetrac(LoaderTemplate):
         save_dir_vi = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_vi_name)
         self.images = np.load(save_dir)
         self.video_start_indices = np.load(save_dir_vi)
-        return
+        return self.images
 
     def load_cached_boxes(self):
         save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_box_name)
-        self.boxes = np.load(save_dir)
-        return
+        self.boxes = np.load(save_dir, allow_pickle = True)
+        return self.boxes
 
     def load_cached_labels(self):
         save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_label_name)
-        labels_pickeled = np.load(save_dir)
+        labels_pickeled = np.load(save_dir, allow_pickle = True)
         self.labels = labels_pickeled.item()
-        return
+        return self.labels
 
 
     def get_boxes(self, anno_dir):
@@ -250,7 +250,7 @@ class LoaderUADetrac(LoaderTemplate):
         intersection_labels = []
         if self.images is None:
             warnings.warn("Must load image before loading labels...returning", Warning)
-        return None
+            return None
 
         print("walking", directory, "for xml parsing")
         for root, subdirs, files in os.walk(directory):
@@ -277,21 +277,16 @@ class LoaderUADetrac(LoaderTemplate):
 
 
 
-                    scene = file.replace(".xml", "") #MVI_20011.xml -> MVI_20011
-                    intersection_per_frame = self.task_manager.call_intersection(self.images[curr_frame_num - 1], scene, bboxes)
-
-
                     for att in frame.iter('attribute'):
                         if (att.attrib['vehicle_type']):
                             car_per_frame.append(att.attrib['vehicle_type'])
                         if (att.attrib['speed']):
                             speed_per_frame.append( self._convert_speed(float(att.attrib['speed'])) )
-                        if (att.attrib['color']):
+                        if ('color' in att.attrib.keys()):
                             color_per_frame.append(att.attrib['color'])
 
+
                     assert(len(car_per_frame) == len(speed_per_frame))
-                    assert(len(car_per_frame) == len(color_per_frame))
-                    assert(len(car_per_frame) == len(intersection_per_frame))
 
                     if len(car_per_frame) == 0:
                         car_labels.append(None)
@@ -329,7 +324,6 @@ if __name__ == "__main__":
     labels = loader.load_labels()
     boxes = loader.load_boxes()
 
-    print(labels)
     print("Time taken to load everything from disk", time.time() - st, "seconds")
     loader.save_boxes()
     loader.save_labels()
@@ -342,6 +336,8 @@ if __name__ == "__main__":
     print("Time taken to load everything from npy", time.time() - st, "seconds")
 
     assert (images.shape == images_cached.shape)
-    assert (labels.shape == labels_cached.shape)
     assert (boxes.shape == boxes_cached.shape)
 
+    for key, value in labels.items():
+        assert(labels[key] == labels_cached[key])
+    assert(labels.keys() == labels_cached.keys())
