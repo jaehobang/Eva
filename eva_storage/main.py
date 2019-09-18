@@ -65,3 +65,13 @@ class Runner:
         cluster_labels = self.cluster.run(final_compressed_images)
 
 
+
+
+if __name__ == "__main__":
+
+
+
+
+    runner = Runner()
+    runner.run()
+
