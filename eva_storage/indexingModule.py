@@ -18,7 +18,6 @@ from eva_storage.models.Autoencoder import Autoencoder
 from sklearn.neighbors import NearestNeighbors
 
 
-
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Define arguments for loader')
@@ -41,9 +40,12 @@ class IndexingModule:
         self.dataloader = None
 
 
+
     def train(self, X_original:np.ndarray, X_segmented:np.ndarray, y:np.ndarray):
         patches, patch_count_list = self._postProcess(X_original, X_segmented)
         self._trainNetwork(patches, patch_count_list)
+        self._createIndex(patches, patch_count_list)
+
 
 
     def _createIndex(self, patches:np.ndarray, patch_count_list:list):
@@ -69,7 +71,9 @@ class IndexingModule:
             patches_compressed[(i * batch_size):(i * batch_size) + batch_size, :] = compressed.view(compressed.size(0),
                                                                                                     -1).cpu().detach().numpy()
 
-        # train for closest images using nearest neighbour
+
+        knn = NearestNeighbors(n_neighbors=args.neighbors).fit(patches_compressed)
+
 
 
         self.knn.fit(patches_compressed)
@@ -82,7 +86,6 @@ class IndexingModule:
 
     def _trainNetwork(self, patches, patch_count_list):
         """
-        TODO: Need to figure out a way
         :param patches:
         :param patch_count_list:
         :return:
