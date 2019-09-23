@@ -17,6 +17,7 @@ import argparse
 from eva_storage.models.Autoencoder import Autoencoder
 from sklearn.neighbors import NearestNeighbors
 
+
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Define arguments for loader')
@@ -33,6 +34,8 @@ class IndexingModule:
         self.patch_width = 32
         self.patch_height = 32
         self.max_patch_count = 10
+
+        self.knn = NearestNeighbors(n_neighbors=args.neighbors)
         self.model = Autoencoder()
         self.dataloader = None
 
@@ -68,13 +71,16 @@ class IndexingModule:
             patches_compressed[(i * batch_size):(i * batch_size) + batch_size, :] = compressed.view(compressed.size(0),
                                                                                                     -1).cpu().detach().numpy()
 
+
         knn = NearestNeighbors(n_neighbors=args.neighbors).fit(patches_compressed)
 
+
+
+        self.knn.fit(patches_compressed)
         # Apply KNN and show the retrived images from test set
-        distances, indices = knn.kneighbors(patches_compressed)
+        distances, indices = self.knn.kneighbors(patches_compressed)
 
         patches = patches.astype(np.uint8)
-
 
 
 

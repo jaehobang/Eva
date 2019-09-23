@@ -5,14 +5,16 @@ Defines the model used for generating index and compression
 """
 
 import time
+import os
 import numpy as np
 from eva_storage.models.UNet_final import UNet_final
 
 
 import torch
+import torch.utils.data
 import torch.nn as nn
 import argparse
-
+import config
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -22,15 +24,17 @@ parser.add_argument('--total_epochs', type = int, default=100, help='Number of e
 parser.add_argument('--l2_reg', type = int, default=1e-6, help='Regularization constaint for training')
 parser.add_argument('--batch_size', type = int, default = 64, help='Batch size used for training')
 parser.add_argument('--compressed_size', type = int, default = 100, help='Number of features the compressed image format has')
+parser.add_argument('--checkpoint_name', type = str, default = 'unet_uadetrac', help='name of the file that will be used to save checkpoints')
 args = parser.parse_args()
 
 
 class UNet:
 
     def __init__(self):
-        self.model = UNet_final(args.compressed_size).to(DEVICE)
+        self.model = None
         self.dataset = None
         self.data_dimensions = None
+        torch.cuda.set_device(config.device_number)
 
     def createData(self, images:np.ndarray, segmented_images:np.ndarray):
         """
@@ -40,16 +44,22 @@ class UNet:
         :return:
         """
 
+
         # we assume the data is not normalized...
         assert(images.dtype == np.uint8)
         assert(segmented_images.dtype == np.uint8)
 
-        images /= 255.0
-        train_data = torch.from_numpy(images).float()
+        images_normalized = np.copy(images)
+        images_normalized = images_normalized.astype(np.float)
+        segmented_normalized = np.copy(segmented_images)
+        segmented_normalized = segmented_normalized.astype(np.float)
+
+        images_normalized /= 255.0
+        train_data = torch.from_numpy(images_normalized).float()
         train_data = train_data.permute(0,3,1,2)
 
-        segmented_images /= 255.0
-        seg_data = torch.from_numpy(segmented_images).float()
+        segmented_normalized /= 255.0
+        seg_data = torch.from_numpy(segmented_normalized).float()
         seg_data = seg_data.unsqueeze_(-1)
         seg_data = seg_data.permute(0,3,1,2)
 
@@ -57,19 +67,26 @@ class UNet:
 
 
 
-    def train(self, images:np.ndarray, segmented_images:np.ndarray):
+    def train(self, images:np.ndarray, segmented_images:np.ndarray, load = True):
         """
         Trains the network with given images
         :param images: original images
-        :param segmented_images: segmented_images
+        :param segmented_images: tmp_data
         :return: None
         """
+        if load:
+            self.load()
+        if self.model is None:
+            print("New instance will be initialized")
+            self.model = UNet_final(args.compressed_size).to(DEVICE)
+
         self.data_dimensions = segmented_images.shape
         self.dataset = self.createData(images, segmented_images)
         distance = nn.MSELoss()
         optimizer = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.l2_reg)
         st = time.perf_counter()
 
+        print("Training the network....")
         for epoch in range(args.total_epochs):
             for i, images in enumerate(self.dataset):
                 images = images.to(DEVICE)
@@ -86,7 +103,42 @@ class UNet:
                                                                                        loss.data,
                                                                                        time.perf_counter() - st))
 
+
+        self.save()
+
         return None
+
+
+    def save(self):
+        """
+        Save the model
+        We will save this in the
+        :return: None
+        """
+        print("Saving the trained model....")
+        eva_dir = config.eva_dir
+        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', args.checkpoint_name + '.pth')
+        torch.save(self.model.state_dict(), dir)
+
+
+    def load(self):
+        """
+        Load the model
+
+        :return:
+        """
+
+        eva_dir = config.eva_dir
+        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', args.checkpoint_name + '.pth')
+        if os.path.exists(dir):
+            self.model = torch.load(dir)
+            self.model.eval()
+        else:
+            print("Checkpoint doesn't exist... no model is loaded")
+
+
+
+
 
 
     def execute(self):
