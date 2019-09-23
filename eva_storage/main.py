@@ -20,8 +20,6 @@ Steps:
 
 """
 
-import numpy as np
-import cv2
 
 from loaders.loader_uadetrac import LoaderUADetrac
 from eva_storage.preprocessingModule import PreprocessingModule
@@ -65,6 +63,8 @@ class Runner:
         st = time.time()
         segmented_images = self.preprocess.run(images, video_start_indices)
         print("Done with background subtraction in", time.time() - st, "(sec)")
+        self.preprocess.saveSegmentedImages()
+
 
         st = time.time()
         self.network.train(images, segmented_images)
@@ -82,7 +82,6 @@ class Runner:
 
 
 if __name__ == "__main__":
-
 
 
 
