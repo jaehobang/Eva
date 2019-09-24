@@ -40,17 +40,14 @@ class WNet:
             for i, images in enumerate(train_loader):
                 optimizer.zero_grad()
                 images_cuda = images.to(config.device)
-                image_layers = images_cuda[:,:3,:,:]
-                x_positional_layer = images_cuda[:,3,:,:]
-                y_positional_layer = images_cuda[:,4,:,:]
                 N,C,H,W = images_cuda.size()
-                dist_diff_matrix = self.calculate_dist_matrix(x_positional_layer, y_positional_layer)
-                segmented, recon = self.model(image_layers)
-                loss1 = self.softcut_loss(segmented, image_layers, dist_diff_matrix)
+                dist_diff_matrix = self.calculate_dist_matrix(N,H,W)
+                segmented, recon = self.model(images_cuda)
+                loss1 = self.softcut_loss(segmented, images_cuda, dist_diff_matrix)
                 loss1.backward(retrain_graph=True)
                 optimizer.step()
                 optimizer.zero_grad()
-                loss2 = distance(recon, image_layers)
+                loss2 = distance(recon, images_cuda)
                 loss2.backward(retrain_graph = False)
                 optimizer.step()
                 print('epoch [{}/{}], loss2:{:.4f}, time elapsed:{:.4f} (sec)'
@@ -119,25 +116,52 @@ class WNet:
         sigma_x_squared = 16
         radius_threshold = 5
         # x_matrix1 = torch.arange(end = H, dtype=torch.float, requires_grad=True).cuda()
-        N,H,W = x_positional_matrix.size()
+        x_matrix1 = torch.arange(end=H, dtype=torch.float).to(config.device)
 
-        x_matrix1 = x_positional_matrix[0].unsqueeze(-1).expand(-1,-1,H*W) # N, H, W, H*W
-        x_matrix2 = x_positional_matrix[0].unsqueeze(-1).reshape(1, 1,-1).expand(H,W,-1)
-        x_matrix1 = torch.pow(x_matrix1 - x_matrix2, 2)
+        x_matrix1.unsqueeze_(-1)
+        x_matrix1 = x_matrix1.expand(-1, W)
+        x_matrix1.unsqueeze_(-1)
+        x_matrix1 = x_matrix1.expand(-1, -1, H * W)
 
-        y_matrix1 = y_positional_matrix[0].unsqueeze(-1).expand(-1, -1, H*W) #N, H,W, H*W
-        y_matrix2 = y_positional_matrix[0].unsqueeze(-1).reshape(1,1,-1).expand(H,W, -1)
-        y_matrix1 = torch.pow(y_matrix1 - y_matrix2, 2) # N, H, W, H*W
+        # x_matrix2 = torch.arange(end = H, dtype = torch.float, requires_grad = True).cuda()
+        x_matrix2 = torch.arange(end=H, dtype=torch.float).to(config.device)
+        x_matrix2.unsqueeze_(-1)
+        x_matrix2 = x_matrix2.expand(-1, W)
+        x_matrix2.unsqueeze_(-1)
+        x_matrix2 = x_matrix2.reshape(1, 1, -1)
+        x_matrix2 = x_matrix2.expand(H, W, -1)
 
+        x_matrix1 = x_matrix1 - x_matrix2
+        x_matrix1 = torch.pow(x_matrix1, 2)
+
+        # y_matrix1 = torch.arange(end = W, dtype=torch.float, requires_grad=True ).cuda()
+        y_matrix1 = torch.arange(end=W, dtype=torch.float).to(config.device)
+        y_matrix1.unsqueeze_(-1)
+        y_matrix1 = y_matrix1.expand(-1, H)
+        y_matrix1 = y_matrix1.permute(1, 0)
+        y_matrix1.unsqueeze_(-1)
+        y_matrix1 = y_matrix1.expand(-1, -1, H * W)
+
+        # y_matrix2 = torch.arange(end = W, dtype = torch.float, requires_grad = True).cuda()
+        y_matrix2 = torch.arange(end=W, dtype=torch.float).to(config.device)
+        y_matrix2 = y_matrix2.repeat(H)
+        y_matrix2.unsqueeze_(-1)
+        y_matrix2.unsqueeze_(-1)
+        y_matrix2 = y_matrix2.permute(1, 2, 0)
+        y_matrix2 = y_matrix2.expand(H, W, -1)
+
+        y_matrix1 = y_matrix1 - y_matrix2
+        y_matrix1 = torch.pow(y_matrix1, 2)
         dist_threshold_matrix = torch.sqrt(x_matrix1 + y_matrix1)
 
         dist_diff = torch.exp(-torch.div(x_matrix1 + y_matrix1, sigma_x_squared))
         assert (dist_diff.size() == torch.Size([H, W, H * W]))
+        dist_diff.unsqueeze_(0)
+        dist_diff = dist_diff.expand(N, -1, -1, -1)  # N,H,W,H*W
         dist_threshold_matrix.unsqueeze_(0)
-        dist_threshold_matrix = dist_threshold_matrix.expand(-1,-1,-1)
+        dist_threshold_matrix = dist_threshold_matrix.expand(N,-1,-1,-1)
         assert(dist_diff.size() == dist_threshold_matrix.size())
         dist_diff[dist_threshold_matrix >= radius_threshold] = 0
-        dist_diff = dist_diff.unsqueeze(0).expand(N, -1, -1, -1)
 
         ## we need to add in the condition that if the distance is greater than threshold, it becomes 0
 
@@ -152,9 +176,17 @@ class WNet:
         sigma_i_squared = 100
         N,C,H,W = original_img.size()
 
-        matrix1 = original_img.unsqueeze(-1).expand(-1, -1 -1, -1, H*W)
-        matrix2 = original_img.unsqueeze(-1).reshape(N, C, 1, 1, -1).expand(-1, -1, H, W, -1)
+        # matrix1 = original_img
+        # matrix1 = torch.tensor(original_img.clone(), requires_grad = True)
+        matrix1 = original_img.clone().to(config.device)
+        matrix1.unsqueeze_(-1)
+        matrix1 = matrix1.expand(-1, -1, -1, -1, H * W)
 
+        # matrix2 = torch.tensor(original_img.clone(), requires_grad = True)
+        # matrix2 = original_img
+        matrix2 = original_img.clone().to(config.device)
+        matrix2.unsqueeze_(-1)
+        matrix2 = matrix2.reshape(N, C, 1, 1, -1).expand(-1, -1, H, W, -1)  # N,C,H,W,H*W
         assert (matrix2.size() == torch.Size([N, C, H, W, H * W]))
 
         matrix1 = matrix1 - matrix2
@@ -170,19 +202,13 @@ class WNet:
         return weight
 
 
-    def append_positional_layers(self, original_layers:torch.Tensor):
-        N,H,W,C = original_layers.size()
+    def append_positional_layers(self, original_layers, H,W):
         x_position_matrix = torch.arange(end=H, dtype=torch.float)
         x_position_matrix = x_position_matrix.unsqueeze(-1).expand(-1, W)
-        x_position_matrix = x_position_matrix.unsqueeze(0).expand(N, -1, -1).unsqueeze(-1)
 
         y_position_matrix = torch.arange(end=W, dtype=torch.float)
         y_position_matrix = y_position_matrix.unsqueeze(-1).expand(-1, H).permute(1, 0)
-        y_position_matrix = y_position_matrix.unsqueeze(0).expand(N, -1, -1).unsqueeze(-1)
-        print(original_layers.size())
-        print(x_position_matrix.size())
-        print(y_position_matrix.size())
-        return torch.cat([original_layers, x_position_matrix, y_position_matrix], dim = 3)
+        return torch.cat([original_layers, x_position_matrix, y_position_matrix])
 
 
     # TODO: Need to convert this to 4d matrix because we expect to pass in multiple samples
@@ -209,7 +235,7 @@ if __name__ == "__main__":
     train_data = torch.from_numpy(X_norm).float()
     N,H,W,C = images.shape
     model = WNet()
-    train_data = model.append_positional_layers(train_data)
+    train_data = model.append_positional_layers(train_data, H,W)
 
     train_data = train_data.permute(0,3,1,2)
     assert(train_data.size(1) == 5)
