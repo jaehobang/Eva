@@ -28,6 +28,8 @@ class WNet:
         self.batch_size = 10
         self.model = WNet_model()
         self.model.to(config.device)
+        self.image_size = 300
+
 
 
     def train(self, train_loader):
@@ -35,16 +37,21 @@ class WNet:
         optimizer = torch.optim.Adam(self.model.parameters(), lr = learning_rate)
         distance = nn.MSELoss()
         print("Training starting....")
+        dist_diff_matrix = None
+
         for epoch in range(self.num_epochs):
             st = time.perf_counter()
             for i, images in enumerate(train_loader):
                 optimizer.zero_grad()
                 images_cuda = images.to(config.device)
                 image_layers = images_cuda[:,:3,:,:]
-                x_positional_layer = images_cuda[:,3,:,:]
-                y_positional_layer = images_cuda[:,4,:,:]
+                positional_layers = images_cuda[:,3:,:,:]
                 N,C,H,W = images_cuda.size()
-                dist_diff_matrix = self.calculate_dist_matrix(x_positional_layer, y_positional_layer)
+                if dist_diff_matrix is None:
+                    print("Starting dist diff calculation....")
+                    dist_diff_matrix = self.calculate_dist_matrix(positional_layers.cpu()) # N, H, W, H*W
+                    dist_diff_matrix = dist_diff_matrix.to(config.device)
+                    print("Done with dist diff calculation!")
                 segmented, recon = self.model(image_layers)
                 loss1 = self.softcut_loss(segmented, image_layers, dist_diff_matrix)
                 loss1.backward(retrain_graph=True)
@@ -115,33 +122,23 @@ class WNet:
 
 
 
-    def calculate_dist_matrix(self, x_positional_matrix, y_positional_matrix):
+    def calculate_dist_matrix(self, positional_matrix):
+        ## positional_matrix shape > N, C, H, W
         sigma_x_squared = 16
         radius_threshold = 5
         # x_matrix1 = torch.arange(end = H, dtype=torch.float, requires_grad=True).cuda()
-        N,H,W = x_positional_matrix.size()
-
-        x_matrix1 = x_positional_matrix[0].unsqueeze(-1).expand(-1,-1,H*W) # N, H, W, H*W
-        x_matrix2 = x_positional_matrix[0].unsqueeze(-1).reshape(1, 1,-1).expand(H,W,-1)
-        x_matrix1 = torch.pow(x_matrix1 - x_matrix2, 2)
-
-        y_matrix1 = y_positional_matrix[0].unsqueeze(-1).expand(-1, -1, H*W) #N, H,W, H*W
-        y_matrix2 = y_positional_matrix[0].unsqueeze(-1).reshape(1,1,-1).expand(H,W, -1)
-        y_matrix1 = torch.pow(y_matrix1 - y_matrix2, 2) # N, H, W, H*W
-
-        dist_threshold_matrix = torch.sqrt(x_matrix1 + y_matrix1)
-
-        dist_diff = torch.exp(-torch.div(x_matrix1 + y_matrix1, sigma_x_squared))
-        assert (dist_diff.size() == torch.Size([H, W, H * W]))
-        dist_threshold_matrix.unsqueeze_(0)
-        dist_threshold_matrix = dist_threshold_matrix.expand(-1,-1,-1)
-        assert(dist_diff.size() == dist_threshold_matrix.size())
-        dist_diff[dist_threshold_matrix >= radius_threshold] = 0
-        dist_diff = dist_diff.unsqueeze(0).expand(N, -1, -1, -1)
-
-        ## we need to add in the condition that if the distance is greater than threshold, it becomes 0
-
-        return dist_diff
+        N,C, H,W = positional_matrix.size()
+        assert(C == 2)
+        matrix = positional_matrix[0].permute(1,2,0).reshape(H*W, C)
+        print(matrix.size())
+        dists = torch.pdist(matrix)
+        tri_upper_indices = np.triu_indices(H*W, 1)
+        dist_final = torch.zeros(H*W, H*W)
+        dist_final[tri_upper_indices] = dists
+        dist_final += dist_final.permute(1,0)
+        dist_final = dist_final.unsqueeze(0).expand(N, -1, -1)
+        dist_final = dist_final.unsqueeze(-1).reshape(N, H, W, H*W)
+        return dist_final
 
     def create_weight_matrix(self, original_img, dist_diff, K):
         # given the corresponding height and width, will create a weight matrix of size H,W,HxW according to the formula given in
@@ -202,7 +199,7 @@ class WNet:
 
 
 if __name__ == "__main__":
-    batch_size = 64
+    batch_size = 10
     loader = LoaderUADetrac()
     images = loader.load_cached_images()
     X_norm = images.astype(np.float) / 255.0

@@ -225,6 +225,28 @@ class WNet:
         total_sum = torch.sum(torch.div(num, denom))
         return N * K - total_sum
 
+    def calculate_dist_matrix(self, positional_matrix):
+        ## positional_matrix shape > N, C, H, W
+        sigma_x_squared = 16
+        radius_threshold = 5
+        # x_matrix1 = torch.arange(end = H, dtype=torch.float, requires_grad=True).cuda()
+        N, C, H, W = positional_matrix.size()
+
+        matrix = positional_matrix[0].permute(1,2,0) # we take a slice of the original positional_matrix
+        matrix_reshaped = matrix.reshape(H*W, C)
+        dists = torch.norm(matrix_reshaped[:,None] - matrix_reshaped, dim=2, p=2)
+        assert(dists.size() == torch.Size([H*W, H*W]))
+        dists.unsqueeze(-1)
+        dists = dists.reshape(H, W, H*W) # this is normalized thus not squared
+        dist_diffs = torch.exp(-torch.div(torch.pow(dists, 2), sigma_x_squared))
+        dist_diffs[dists >= radius_threshold] = 0
+        dist_diffs = dist_diffs.unsqueeze(0).expand(N, -1, -1, -1)
+
+
+        ## we need to add in the condition that if the distance is greater than threshold, it becomes 0
+
+        return dist_diffs
+
 
 
 if __name__ == "__main__":
