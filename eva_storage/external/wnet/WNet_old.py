@@ -169,7 +169,7 @@ class WNet:
 
     def create_weight_matrix(self, original_img, dist_diff, K):
         # given the corresponding height and width, will create a weight matrix of size H,W,HxW according to the formula given in
-        # w-net paper.
+        # louis_wnet paper.
         # original_img size: torch.Size(N,C,H,W)
         # dist_diff size: torch.Size(N,H,W,H*W)
         # we will assume matrix of size H, W is given, it is initialized to zeros
