@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 import cv2
 
 from loaders import TaskManager
-from loaders.loader_template import LoaderTemplate
+from loaders.abstract_loader import AbstractLoader
 import warnings
 import argparse
 
@@ -29,7 +29,7 @@ args = parser.parse_args()
 
 # Make this return a dictionary of label to data for the whole dataset
 
-class LoaderUADetrac(LoaderTemplate):
+class UADetracLoader(AbstractLoader):
     def __init__(self, image_width = 300, image_height = 300):
         self.data_dict = {}
         self.label_dict = {}
@@ -71,11 +71,14 @@ class LoaderUADetrac(LoaderTemplate):
         return self.boxes
 
 
-    def load_images(self, dir:str = None):
+    def load_images(self, dir:str = None, image_size = None):
         """
         This function simply loads image of given image
         :return: image_array (numpy)
         """
+        if image_size is not None:
+            self.image_height = image_size
+            self.image_width = image_size
 
         if dir == None:
             dir = os.path.join(self.eva_dir, 'data', 'ua_detrac', args.image_path)
@@ -319,7 +322,7 @@ if __name__ == "__main__":
     import time
 
     st = time.time()
-    loader = LoaderUADetrac()
+    loader = UADetracLoader()
     images = loader.load_images()
     labels = loader.load_labels()
     boxes = loader.load_boxes()

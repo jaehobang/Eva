@@ -70,8 +70,7 @@ def process_image(image):
         image.save("test_image" + str(random.randint(0,100)) + ".jpg", "JPEG")
     """
     
-    width, height, channels = image.shape
-    print(height, width ,channels)
+    height, width, channels = image.shape
     width_margin = int(width - (width * .65))
     height_margin = int(height - (height * .75))
     for row in range(height_margin, height - height_margin):
