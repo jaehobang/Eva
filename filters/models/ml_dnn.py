@@ -23,6 +23,7 @@ class MLMLP(MLBase):
     def train(self, X :np.ndarray, y :np.ndarray):
         n_samples = X.shape[0]
         X = X / 255.0
+        X = X.reshape(n_samples, -1)
 
         division = int(n_samples * self.division_rate)
         X_train = X[:division]
@@ -44,5 +45,6 @@ class MLMLP(MLBase):
     def predict(self, X :np.ndarray):
         n_samples = X.shape[0]
         X = X / 255.0
+        X = X.reshape(n_samples, -1)
         return self.model.predict(X)
 

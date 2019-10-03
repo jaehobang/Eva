@@ -231,30 +231,6 @@ if __name__ == "__main__":
     print(stats)
     print("filter got all stats")
 
-    """
-    from loaders.loader_uadetrac import LoaderUADetrac
-  
-    loader = LoaderUADetrac()
-    X = loader.load_images()
-    y = loader.load_labels()
-    y_vehicle = y['vehicle']
-    y_iscar = []
-  
-    vehicle_types = ["car", "van", "bus", "others"]
-    for i in range(len(y_vehicle)):
-      if "Sedan" in y_vehicle[i]:
-        y_iscar.append(1)
-      else:
-        y_iscar.append(0)
-  
-    y_iscar = np.array(y_iscar, dtype=np.uint8)
-  
-    division = int(X.shape[0] * 0.8)
-    X_train = X[:division]
-    X_test = X[division:]
-    y_iscar_train = y_iscar[:division]
-    y_iscar_test = y_iscar[division:]
-    """
 
 
 
