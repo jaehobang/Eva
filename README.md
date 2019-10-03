@@ -16,9 +16,13 @@
 ##### How to create the virtual environment
 * Install conda - we have prepared a yaml file that you can directly use with conda to install a virtual environment 
 * Navigate to the eva repository in your local computer
-* conda env create -f environment.yml
-* Note, this yaml file should install and all code should run with no errors in Ubuntu 16.04.
-   However, there are know installation issues with MacOS.
+```bash
+conda env create -f environment.yml
+```
+Or if you are working on a mac environment
+```bash
+conda env create -f environment_mac.yml
+```
     
 ### Demos
 We have demos for the following components:
@@ -84,7 +88,6 @@ Currently a work in progress. Come check back later!
 
 ### Dataset
 __[Dataset info](data/README.md)__ explains detailed information about the  datasets
-
 
 
 
