@@ -5,7 +5,7 @@ This file is used to evaluate the compression method of the pipeline
 
 
 import numpy as np
-from loaders.loader_uadetrac import LoaderUADetrac
+from loaders.uadetrac_loader import UADetracLoader
 from eva_storage.preprocessingModule import PreprocessingModule
 from eva_storage.UNet import UNet
 from eva_storage.clusterModule import ClusterModule
@@ -31,6 +31,9 @@ def get_rep_frames(images:np.ndarray, labels, image_cluster_labels):
 
 
 if __name__ == "__main__":
+
+    ### deprecated... moved to ipynb file
+    """
     loader = LoaderUADetrac()
     images = loader.load_cached_images()
     labels = loader.load_cached_labels()
@@ -55,6 +58,8 @@ if __name__ == "__main__":
 
     fm_repframe = FilterMinimum()
     fm_repframe.train(rep_images, rep_labels)
+    """
 
+    
 
 

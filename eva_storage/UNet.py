@@ -16,7 +16,6 @@ import torch.nn as nn
 import argparse
 import config
 
-DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Define arguments for loader')
 parser.add_argument('--learning_rate', type = int, default=0.0001, help='Learning rate for UNet')
@@ -34,7 +33,7 @@ class UNet:
         self.model = None
         self.dataset = None
         self.data_dimensions = None
-        torch.cuda.set_device(config.device_number)
+
 
     def createData(self, images:np.ndarray, segmented_images:np.ndarray):
         """
@@ -78,7 +77,8 @@ class UNet:
             self.load()
         if self.model is None:
             print("New instance will be initialized")
-            self.model = UNet_final(args.compressed_size).to(DEVICE)
+            print(type(config.device))
+            self.model = UNet_final(args.compressed_size).to(device = config.device, dtype = None, non_blocking = False)
 
         self.data_dimensions = segmented_images.shape
         self.dataset = self.createData(images, segmented_images)
@@ -89,7 +89,7 @@ class UNet:
         print("Training the network....")
         for epoch in range(args.total_epochs):
             for i, images in enumerate(self.dataset):
-                images = images.to(DEVICE)
+                images = images.to(config.device)
                 images_input = images[:,:3,:,:]
                 images_output = images[:,3:,:,:]
                 compressed, final = self.model(images_input)
@@ -99,17 +99,20 @@ class UNet:
                 loss.backward()
                 optimizer.step()
 
+
             print('epoch [{}/{}], loss:{:.4f}, time elapsed:{:.4f} (sec)'.format(epoch + 1, args.total_epochs,
                                                                                        loss.data,
                                                                                        time.perf_counter() - st))
 
+            if epoch % 10 == 0:
+                self.save(epoch)
 
-        self.save()
+        self.save(epoch)
 
         return None
 
 
-    def save(self):
+    def save(self, epoch = 0):
         """
         Save the model
         We will save this in the
@@ -117,11 +120,12 @@ class UNet:
         """
         print("Saving the trained model....")
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', args.checkpoint_name + '.pth')
+        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch + 1))
         torch.save(self.model.state_dict(), dir)
 
 
-    def load(self):
+
+    def load(self, epoch = 0):
         """
         Load the model
 
@@ -129,7 +133,7 @@ class UNet:
         """
 
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', args.checkpoint_name + '.pth')
+        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch + 1))
         if os.path.exists(dir):
             self.model = torch.load(dir)
             self.model.eval()
@@ -149,7 +153,7 @@ class UNet:
         seg_data = np.ndarray(shape=self.data_dimensions)
         compressed_data = np.ndarray(shape = (self.data_dimensions[0], args.compressed_size))
         for i, images in enumerate(self.dataset):
-            images = images.to(DEVICE)
+            images = images.to(config.device)
             images_input = images[:,:3,:,:]
             compressed, final = self.model(images_input)
             final_cpu = self._convertSegmented(final)

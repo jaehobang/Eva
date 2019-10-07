@@ -17,7 +17,7 @@ import torch.nn as nn
 import config
 
 from eva_storage.external.wnet.WNet_model import WNet_model
-from loaders.loader_uadetrac import LoaderUADetrac
+from loaders.uadetrac_loader import LoaderUADetrac
 
 
 

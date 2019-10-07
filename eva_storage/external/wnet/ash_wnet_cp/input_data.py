@@ -1,8 +1,8 @@
 import tensorflow as tf
-from os import listdir
+import os
 import numpy as np
 
-file_path = "data/voc_pascal/"
+file_path = ""
 batch_size = 1
 
 def parse_image(filename):
@@ -12,9 +12,30 @@ def parse_image(filename):
     img_standard = tf.image.per_image_standardization(image_resized)
     return img_standard
 
+
 def get_filenames():
-    filenames = listdir(file_path)
+    filenames = os.listdir(file_path)
     return filenames
+
+
+def get_filenames_uadetrac():
+    filenames = []
+    dir = "/nethome/jbang36/eva/data/ua_detrac/small-data"
+    for root, subdirs, files in os.walk(dir):
+        files.sort()
+        for file in files:
+            filenames.append(os.path.join(root, file))
+    return filenames
+
+
+def input_data_uadetrac():
+    filenames = get_filenames_uadetrac()
+    print(len(filenames))
+    train_dataset = tf.data.Dataset.from_tensor_slices(filenames)
+    train_dataset = train_dataset.shuffle(100).repeat()
+    train_dataset = train_dataset.map(parse_image, num_parallel_calls=4).batch(batch_size)
+    return train_dataset.make_one_shot_iterator()
+
 
 def input_data():
     filenames = get_filenames()
