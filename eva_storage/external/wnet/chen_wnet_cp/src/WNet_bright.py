@@ -15,7 +15,7 @@ def tf_flags():
     FLAGS = tf.flags.FLAGS
     tf.flags.DEFINE_integer("batch_size", "5", "batch size for training")
     tf.flags.DEFINE_integer("image_size", "128", "batch size for training")
-    tf.flags.DEFINE_integer('max_iteration', "50000", "max iterations")
+    tf.flags.DEFINE_integer('max_iteration', "100000", "max iterations")
     tf.flags.DEFINE_integer('decay_steps', "10000", "max iterations")
     tf.flags.DEFINE_integer('num_class', "21", "number of classes for segmentation")
     tf.flags.DEFINE_integer('num_layers', "5", "number of layers of UNet")

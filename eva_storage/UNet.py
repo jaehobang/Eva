@@ -109,7 +109,7 @@ class UNet:
         return None
 
 
-    def save(self):
+    def save(self, epoch = 0):
         """
         Save the model
         We will save this in the
@@ -121,7 +121,7 @@ class UNet:
         torch.save(self.model.state_dict(), dir)
 
 
-    def load(self):
+    def load(self, epoch = 0):
         """
         Load the model
 
@@ -131,8 +131,10 @@ class UNet:
         eva_dir = config.eva_dir
         dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', args.checkpoint_name + '.pth')
         if os.path.exists(dir):
-            self.model = torch.load(dir)
-            self.model.eval()
+
+            self.model = UNet_final(args.compressed_size).to(DEVICE)
+            self.model.load_state_dict(torch.load(dir))
+
         else:
             print("Checkpoint doesn't exist... no model is loaded")
 

@@ -132,9 +132,9 @@ class Wnet_naive(Unet):
         pred = utils.batch_colorize_ndarray(pred, 0, self.flags.num_class, self.flags.cmap)[:,:,:,:3]
         
         for itr in range(self.flags.batch_size):
-            utils.save_image(valid_images[itr].astype(np.uint8), self.flags.logs_dir, name="inp_" + str(5+itr),mean=1)
-            utils.save_image(reconst_image[itr].astype(np.uint8), self.flags.logs_dir, name="gt_" + str(5+itr),mean=1)
-            utils.save_image(pred[itr].astype(np.uint8), self.flags.logs_dir, name="pred_" + str(5+itr),mean=1)
+            utils.save_image(valid_images[itr].astype(np.uint8), self.flags.logs_dir, name="inp_" + str(5+itr))
+            utils.save_image(reconst_image[itr].astype(np.uint8), self.flags.logs_dir, name="gt_" + str(5+itr))
+            utils.save_image(pred[itr].astype(np.uint8), self.flags.logs_dir, name="pred_" + str(5+itr))
             print("Saved image: %d" % itr)
         
         return valid_images, pred
