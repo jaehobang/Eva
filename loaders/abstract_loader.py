@@ -7,7 +7,7 @@ If any issues arise, please email jaeho.bang@gmail.com
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-class LoaderTemplate(metaclass=ABCMeta):
+class AbstractLoader(metaclass=ABCMeta):
 
 
   @abstractmethod
