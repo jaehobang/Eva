@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 import os
 import config
-from loaders.loader_uadetrac import LoaderUADetrac
+from loaders.uadetrac_loader import UADetracLoader
 
 TIMED = True
 
@@ -109,17 +109,8 @@ class PreprocessingModule:
             print("path", dir, "does not exist..")
 
 
-
-
-
-
-
-
-
-
-
 if __name__ == "__main__":
-    loader = LoaderUADetrac()
+    loader = UADetracLoader()
     images = loader.load_images()
     labels = loader.load_labels()
     boxes = loader.load_boxes()

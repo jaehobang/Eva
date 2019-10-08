@@ -8,7 +8,7 @@ from sklearn.decomposition import PCA
 
 class MLPCA(MLBase):
   def __init__(self, **kwargs):
-    super(MLPCA, self).__init__()
+    super().__init__()
     if kwargs:
       self.model = PCA(random_state=0)
     else:

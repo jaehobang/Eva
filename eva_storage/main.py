@@ -21,7 +21,7 @@ Steps:
 """
 
 
-from loaders.loader_uadetrac import LoaderUADetrac
+from loaders.uadetrac_loader import LoaderUADetrac
 from eva_storage.preprocessingModule import PreprocessingModule
 from eva_storage.UNet import UNet
 from eva_storage.clusterModule import ClusterModule

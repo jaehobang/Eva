@@ -5,7 +5,7 @@ This file is used to evaluate the compression method of the pipeline
 
 
 import numpy as np
-from loaders.loader_uadetrac import LoaderUADetrac
+from loaders.uadetrac_loader import UADetracLoader
 from eva_storage.preprocessingModule import PreprocessingModule
 from eva_storage.UNet import UNet
 from eva_storage.clusterModule import ClusterModule
@@ -15,22 +15,24 @@ from filters.minimum_filter import FilterMinimum
 def get_rep_frames(images:np.ndarray, labels, image_cluster_labels):
     visited_cluster_nums = set()
     n_samples, height, width ,channels = images.shape
-    rep_images = np.ndarray(shape = (max(image_cluster_labels) + 1, height, width, channels))
-    rep_labels = np.ndarray(shape = (max(image_cluster_labels) + 1, height, width, channels))
+    rep_images = np.zeros(shape = (max(image_cluster_labels) + 1, height, width, channels))
+    rep_labels = np.zeros(shape = (max(image_cluster_labels) + 1))
 
-
-    for i in range(len(visited_cluster_nums)):
+    for i in range(len(image_cluster_labels)):
         if image_cluster_labels[i] not in visited_cluster_nums:
-            visited_cluster_nums.add(image_cluster_labels)
+            visited_cluster_nums.add(image_cluster_labels[i])
             rep_images[image_cluster_labels[i]] = images[i]
             rep_labels[image_cluster_labels[i]] = labels[i]
-
 
     return rep_images, rep_labels
 
 
 
+
 if __name__ == "__main__":
+
+    ### deprecated... moved to ipynb file
+    """
     loader = LoaderUADetrac()
     images = loader.load_cached_images()
     labels = loader.load_cached_labels()
@@ -55,6 +57,8 @@ if __name__ == "__main__":
 
     fm_repframe = FilterMinimum()
     fm_repframe.train(rep_images, rep_labels)
+    """
 
+    
 
 

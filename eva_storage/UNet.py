@@ -16,7 +16,6 @@ import torch.nn as nn
 import argparse
 import config
 
-DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Define arguments for loader')
 parser.add_argument('--learning_rate', type = int, default=0.0001, help='Learning rate for UNet')
@@ -34,7 +33,7 @@ class UNet:
         self.model = None
         self.dataset = None
         self.data_dimensions = None
-        torch.cuda.set_device(config.device_number)
+
 
     def createData(self, images:np.ndarray, segmented_images:np.ndarray):
         """
@@ -67,7 +66,7 @@ class UNet:
 
 
 
-    def train(self, images:np.ndarray, segmented_images:np.ndarray, load = True):
+    def train(self, images:np.ndarray, segmented_images:np.ndarray, load = True, epoch = 0):
         """
         Trains the network with given images
         :param images: original images
@@ -75,10 +74,11 @@ class UNet:
         :return: None
         """
         if load:
-            self.load()
+            self.load(epoch)
         if self.model is None:
             print("New instance will be initialized")
-            self.model = UNet_final(args.compressed_size).to(DEVICE)
+            print(type(config.device))
+            self.model = UNet_final(args.compressed_size).to(device = config.device, dtype = None, non_blocking = False)
 
         self.data_dimensions = segmented_images.shape
         self.dataset = self.createData(images, segmented_images)
@@ -86,10 +86,13 @@ class UNet:
         optimizer = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.l2_reg)
         st = time.perf_counter()
 
+        if epoch == 100:
+            print("No need to train the network...epoch is {}, returning...".format(epoch))
+            return
         print("Training the network....")
         for epoch in range(args.total_epochs):
             for i, images in enumerate(self.dataset):
-                images = images.to(DEVICE)
+                images = images.to(config.device)
                 images_input = images[:,:3,:,:]
                 images_output = images[:,3:,:,:]
                 compressed, final = self.model(images_input)
@@ -99,12 +102,15 @@ class UNet:
                 loss.backward()
                 optimizer.step()
 
-            print('epoch [{}/{}], loss:{:.4f}, time elapsed:{:.4f} (sec)'.format(epoch + 1, args.total_epochs,
+
+            print('epoch [{}/{}], loss:{:.4f}, time elapsed:{:.4f} (sec)'.format(epoch, args.total_epochs,
                                                                                        loss.data,
                                                                                        time.perf_counter() - st))
 
+            if epoch % 10 == 0:
+                self.save(epoch)
 
-        self.save()
+        self.save(epoch)
 
         return None
 
@@ -115,9 +121,10 @@ class UNet:
         We will save this in the
         :return: None
         """
-        print("Saving the trained model....")
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', args.checkpoint_name + '.pth')
+        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
+        print("Saving the trained model as....", dir)
+
         torch.save(self.model.state_dict(), dir)
 
 
@@ -129,11 +136,14 @@ class UNet:
         """
 
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', args.checkpoint_name + '.pth')
+        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
+        print("trying to load file ", dir)
         if os.path.exists(dir):
 
-            self.model = UNet_final(args.compressed_size).to(DEVICE)
+            self.model = UNet_final(args.compressed_size).to(config.device)
             self.model.load_state_dict(torch.load(dir))
+            print("Model successfully loaded!")
+
 
         else:
             print("Checkpoint doesn't exist... no model is loaded")
@@ -151,7 +161,7 @@ class UNet:
         seg_data = np.ndarray(shape=self.data_dimensions)
         compressed_data = np.ndarray(shape = (self.data_dimensions[0], args.compressed_size))
         for i, images in enumerate(self.dataset):
-            images = images.to(DEVICE)
+            images = images.to(config.device)
             images_input = images[:,:3,:,:]
             compressed, final = self.model(images_input)
             final_cpu = self._convertSegmented(final)

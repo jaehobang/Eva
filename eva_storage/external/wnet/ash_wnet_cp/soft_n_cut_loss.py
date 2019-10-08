@@ -16,7 +16,7 @@ from tensorflow.python.keras.models import Model
 from tensorflow.python.keras import backend as K_B
 import coloredlogs
 from os.path import exists
-from eva_storage.external.ash_net.input_data import input_data
+from eva_storage.external.wnet.ash_wnet_cp.input_data import input_data_uadetrac
 import os
 import time
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -282,8 +282,8 @@ if __name__ == '__main__':
 	tf.summary.image('output_image', decode)
 	tf.summary.image('input_image', x)
 	tf.summary.image('segmented_op', image_segmented)
-	# tf.summary.histogram('segmented_image', output_vis)
-	# tf.summary.histogram('reconstructed_image', decode)
+	tf.summary.histogram('segmented_image', output_vis)
+	tf.summary.histogram('reconstructed_image', decode)
 
 	merged = tf.summary.merge_all()
 	saver = tf.train.Saver()
@@ -301,7 +301,7 @@ if __name__ == '__main__':
 		else:
 			tf.logging.info('Training from Scratch -  No Checkpoint found')
 		
-		iterator = input_data()
+		iterator = input_data_uadetrac()
 		next_items = iterator.get_next()
 		# img_lab = np.expand_dims(cv2.cvtColor(img, cv2.COLOR_BGR2LAB), axis=0)
 		i = 0

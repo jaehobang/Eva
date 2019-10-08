@@ -17,7 +17,7 @@ import time
 
 import eva_storage.external.wnet.tao_wnet.WNet as WNet
 
-from loaders.loader_uadetrac import LoaderUADetrac
+from loaders.uadetrac_loader import LoaderUADetrac
 
 parser = argparse.ArgumentParser(description='PyTorch Unsupervised Segmentation with WNet')
 parser.add_argument('--in_Chans', metavar='C', default=3, type=int, 
