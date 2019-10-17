@@ -211,12 +211,14 @@ class UADetracLoader(AbstractLoader):
         anno_files.sort()
         boxes_dataset = []
         cumu_count = 0
+        print(anno_files)
 
         for anno_file in anno_files:
             if ".xml" not in anno_file:
                 print("skipping", anno_file)
                 continue
             file_path = os.path.join(anno_dir, anno_file)
+            print(file_path)
 
             tree = ET.parse(file_path)
             tree_root = tree.getroot()
@@ -236,6 +238,9 @@ class UADetracLoader(AbstractLoader):
 
             boxes_dataset.append(boxes_frame)
 
+
+        print(len(boxes_dataset))
+
         return boxes_dataset
 
 
@@ -250,6 +255,49 @@ class UADetracLoader(AbstractLoader):
         converted_range = [0.0, 100.0]
 
         return original_speed * 5
+
+
+    def get_boxes(self, anno_dir):
+        width = self.image_width
+        height = self.image_height
+        original_height = 540
+        original_width = 960
+        anno_files = os.listdir(anno_dir)
+        anno_files.sort()
+        boxes_dataset = []
+
+        print(anno_files)
+
+        for anno_file in anno_files:
+            if ".xml" not in anno_file:
+                print("skipping", anno_file)
+                continue
+            file_path = os.path.join(anno_dir, anno_file)
+            print(file_path)
+
+            tree = ET.parse(file_path)
+            tree_root = tree.getroot()
+
+            for frame in tree_root.iter('frame'):
+                boxes_frame = []
+                curr_frame_num = int(frame.attrib['num'])
+                if len(boxes_dataset) < curr_frame_num - 1:
+                    boxes_dataset.extend([None] * (curr_frame_num - len(boxes_dataset)))
+                    print("Adding None: number is ", curr_frame_num - len(boxes_dataset))
+                for box in frame.iter('box'):
+                    left = int(float(box.attrib['left']) * width / original_width)
+                    top = int(float(box.attrib['top']) * height / original_height)
+                    right = int((float(box.attrib['left']) + float(box.attrib['width'])) * width / original_width)
+                    bottom = int((float(box.attrib['top']) + float(box.attrib['height'])) * height / original_height)
+
+                    boxes_frame.append((top, left, bottom, right))
+
+                boxes_dataset.append(boxes_frame)
+
+
+        print(len(boxes_dataset))
+
+        return boxes_dataset
 
 
     def _load_XML(self, directory):

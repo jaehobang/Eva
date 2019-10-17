@@ -1,18 +1,18 @@
 import torch
-from vision.ssd.vgg_ssd import create_vgg_ssd, create_vgg_ssd_predictor
-from vision.ssd.mobilenetv1_ssd import create_mobilenetv1_ssd, create_mobilenetv1_ssd_predictor
-from vision.ssd.mobilenetv1_ssd_lite import create_mobilenetv1_ssd_lite, create_mobilenetv1_ssd_lite_predictor
-from vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite, create_squeezenet_ssd_lite_predictor
-from vision.datasets.voc_dataset import VOCDataset
-from vision.datasets.open_images import OpenImagesDataset
-from vision.utils import box_utils, measurements
-from vision.utils.misc import str2bool, Timer
+from eva_storage.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd, create_vgg_ssd_predictor
+from eva_storage.external.ssd.vision.ssd.mobilenetv1_ssd import create_mobilenetv1_ssd, create_mobilenetv1_ssd_predictor
+from eva_storage.external.ssd.vision.ssd.mobilenetv1_ssd_lite import create_mobilenetv1_ssd_lite, create_mobilenetv1_ssd_lite_predictor
+from eva_storage.external.ssd.vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite, create_squeezenet_ssd_lite_predictor
+from eva_storage.external.ssd.vision.datasets.voc_dataset import VOCDataset
+from eva_storage.external.ssd.vision.datasets.open_images import OpenImagesDataset
+from eva_storage.external.ssd.vision.utils import box_utils, measurements
+from eva_storage.external.ssd.vision.utils.misc import str2bool, Timer
 import argparse
 import pathlib
 import numpy as np
 import logging
 import sys
-from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite, create_mobilenetv2_ssd_lite_predictor
+from eva_storage.external.ssd.vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite, create_mobilenetv2_ssd_lite_predictor
 
 
 parser = argparse.ArgumentParser(description="SSD Evaluation on VOC Dataset.")
@@ -109,10 +109,16 @@ def compute_average_precision_per_class(num_true_cases, gt_boxes, difficult_case
             else:
                 false_positive[i] = 1
 
+
     true_positive = true_positive.cumsum()
     false_positive = false_positive.cumsum()
     precision = true_positive / (true_positive + false_positive)
     recall = true_positive / num_true_cases
+
+    print(true_positive)
+    print(false_positive)
+    print("precision is", precision)
+    print("recall is", recall)
     if use_2007_metric:
         return measurements.compute_voc2007_average_precision(precision, recall)
     else:
