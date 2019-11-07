@@ -15,18 +15,17 @@ from filters.minimum_filter import FilterMinimum
 def get_rep_frames(images:np.ndarray, labels, image_cluster_labels):
     visited_cluster_nums = set()
     n_samples, height, width ,channels = images.shape
-    rep_images = np.ndarray(shape = (max(image_cluster_labels) + 1, height, width, channels))
-    rep_labels = np.ndarray(shape = (max(image_cluster_labels) + 1, height, width, channels))
+    rep_images = np.zeros(shape = (max(image_cluster_labels) + 1, height, width, channels))
+    rep_labels = np.zeros(shape = (max(image_cluster_labels) + 1))
 
-
-    for i in range(len(visited_cluster_nums)):
+    for i in range(len(image_cluster_labels)):
         if image_cluster_labels[i] not in visited_cluster_nums:
-            visited_cluster_nums.add(image_cluster_labels)
+            visited_cluster_nums.add(image_cluster_labels[i])
             rep_images[image_cluster_labels[i]] = images[i]
             rep_labels[image_cluster_labels[i]] = labels[i]
 
-
     return rep_images, rep_labels
+
 
 
 
