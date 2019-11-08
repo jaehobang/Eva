@@ -12,7 +12,7 @@ from filters.models.ml_base import MLBase
 
 class MLMLP(MLBase):
     def __init__(self, **kwargs):
-        super(MLMLP, self).__init__()
+        super().__init__()
         if kwargs:
             self.model = MLPClassifier(solver='lbfgs', alpha=1e-5,
                                    hidden_layer_sizes=(5, 2), random_state=1)

@@ -48,7 +48,7 @@ class UADetracLoader(AbstractLoader):
         self.labels = None
         self.boxes = None
         self.eva_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.video_start_indices = []
+        self.video_start_indices = np.array([])
 
 
     def load_video(self, dir:str):
@@ -83,11 +83,19 @@ class UADetracLoader(AbstractLoader):
         if dir == None:
             dir = os.path.join(self.eva_dir, 'data', 'ua_detrac', args.image_path)
         file_names = []
-        for root, subdirs, files in os.walk(dir):
+        video_start_indices = []
+
+        mvi_directories = os.listdir(dir)
+        mvi_directories.sort()
+
+        for mvi_dir in mvi_directories:
+            files = os.listdir(os.path.join(dir, mvi_dir))
+            if files == []:
+                continue
             files.sort()
-            self.video_start_indices.append(len(file_names))
+            video_start_indices.append(len(files))
             for file in files:
-                file_names.append(os.path.join(root, file))
+                file_names.append(os.path.join(dir, mvi_dir, file))
 
         print("Number of files added: ", len(file_names))
 
@@ -101,6 +109,8 @@ class UADetracLoader(AbstractLoader):
               img = cv2.imread(file_name)
               img = cv2.resize(img, (self.image_width, self.image_height))
               self.images[i] = img
+
+        self.video_start_indices = np.array(video_start_indices)
 
         return self.images
 
@@ -132,6 +142,7 @@ class UADetracLoader(AbstractLoader):
         :return: python list with starting indexes saved
         """
         return self.video_start_indices
+
 
     def save_images(self):
         # we need to save the image / video start indexes
@@ -200,12 +211,14 @@ class UADetracLoader(AbstractLoader):
         anno_files.sort()
         boxes_dataset = []
         cumu_count = 0
+        print(anno_files)
 
         for anno_file in anno_files:
             if ".xml" not in anno_file:
                 print("skipping", anno_file)
                 continue
             file_path = os.path.join(anno_dir, anno_file)
+            print(file_path)
 
             tree = ET.parse(file_path)
             tree_root = tree.getroot()
@@ -225,6 +238,9 @@ class UADetracLoader(AbstractLoader):
 
             boxes_dataset.append(boxes_frame)
 
+
+        print(len(boxes_dataset))
+
         return boxes_dataset
 
 
@@ -239,6 +255,49 @@ class UADetracLoader(AbstractLoader):
         converted_range = [0.0, 100.0]
 
         return original_speed * 5
+
+
+    def get_boxes(self, anno_dir):
+        width = self.image_width
+        height = self.image_height
+        original_height = 540
+        original_width = 960
+        anno_files = os.listdir(anno_dir)
+        anno_files.sort()
+        boxes_dataset = []
+
+        print(anno_files)
+
+        for anno_file in anno_files:
+            if ".xml" not in anno_file:
+                print("skipping", anno_file)
+                continue
+            file_path = os.path.join(anno_dir, anno_file)
+            print(file_path)
+
+            tree = ET.parse(file_path)
+            tree_root = tree.getroot()
+
+            for frame in tree_root.iter('frame'):
+                boxes_frame = []
+                curr_frame_num = int(frame.attrib['num'])
+                if len(boxes_dataset) < curr_frame_num - 1:
+                    boxes_dataset.extend([None] * (curr_frame_num - len(boxes_dataset)))
+                    print("Adding None: number is ", curr_frame_num - len(boxes_dataset))
+                for box in frame.iter('box'):
+                    left = int(float(box.attrib['left']) * width / original_width)
+                    top = int(float(box.attrib['top']) * height / original_height)
+                    right = int((float(box.attrib['left']) + float(box.attrib['width'])) * width / original_width)
+                    bottom = int((float(box.attrib['top']) + float(box.attrib['height'])) * height / original_height)
+
+                    boxes_frame.append((top, left, bottom, right))
+
+                boxes_dataset.append(boxes_frame)
+
+
+        print(len(boxes_dataset))
+
+        return boxes_dataset
 
 
     def _load_XML(self, directory):
@@ -257,8 +316,12 @@ class UADetracLoader(AbstractLoader):
 
         print("walking", directory, "for xml parsing")
         for root, subdirs, files in os.walk(directory):
+            if '.ipy' in root:
+                continue
             files.sort()
-            for file in files:
+            print("files len", len(files))
+            print(root, subdirs, files)
+            for i,file in enumerate(files):
                 file_path = os.path.join(root, file)
                 if ".swp" in file_path:
                     continue
@@ -266,12 +329,19 @@ class UADetracLoader(AbstractLoader):
                 tree_root = tree.getroot()
                 start_frame_num = 1
                 start_frame = True
+
+                car_labels_file = []
+                speed_labels_file =[]
+                color_labels_file = []
+                intersection_labels_file = []
+
                 for frame in tree_root.iter('frame'):
                     curr_frame_num = int(frame.attrib['num'])
                     if start_frame and curr_frame_num != start_frame_num:
-                        car_labels.append( [None] * (curr_frame_num - start_frame_num) )
-                        speed_labels.append( [None] * (curr_frame_num - start_frame_num) )
-
+                        car_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
+                        speed_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
+                        color_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
+                        intersection_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
 
                     car_per_frame = []
                     speed_per_frame = []
@@ -292,26 +362,38 @@ class UADetracLoader(AbstractLoader):
                     assert(len(car_per_frame) == len(speed_per_frame))
 
                     if len(car_per_frame) == 0:
-                        car_labels.append(None)
+                        car_labels_file.append(None)
                     else:
-                        car_labels.append(car_per_frame)
+                        car_labels_file.append(car_per_frame)
 
                     if len(speed_per_frame) == 0:
-                        speed_labels.append(None)
+                        speed_labels_file.append(None)
                     else:
-                        speed_labels.append(speed_per_frame)
+                        speed_labels_file.append(speed_per_frame)
 
                     if len(color_per_frame) == 0:
-                        color_labels.append(None)
+                        color_labels_file.append(None)
                     else:
-                        color_labels.append(color_per_frame)
+                        color_labels_file.append(color_per_frame)
 
                     if len(intersection_per_frame) == 0:
-                        intersection_labels.append(None)
+                        intersection_labels_file.append(None)
                     else:
-                        intersection_labels.append(intersection_per_frame)
+                        intersection_labels_file.append(intersection_per_frame)
 
                     start_frame = False
+
+
+                assert(len(car_labels_file) == self.video_start_indices[i])
+                assert(len(speed_labels_file) == self.video_start_indices[i])
+                assert(len(intersection_labels_file) == self.video_start_indices[i])
+                assert(len(color_labels_file) == self.video_start_indices[i])
+
+                car_labels.extend(car_labels_file)
+                speed_labels.extend(speed_labels_file)
+                intersection_labels.extend(intersection_labels_file)
+                color_labels.extend(color_labels_file)
+
 
         return [car_labels, speed_labels, color_labels, intersection_labels]
 

@@ -78,7 +78,6 @@ class UNet:
             return torch.utils.data.DataLoader(torch.cat((train_data, seg_data), dim = 1))
 
 
-
     def train(self, images:np.ndarray, segmented_images:np.ndarray, load = True, epoch = 0):
         """
         Trains the network with given images
@@ -91,8 +90,9 @@ class UNet:
         self.dataset = self.createData(images, segmented_images)
 
         if load:
-            self._load(epoch)
-            return None
+
+            self.load(epoch)
+
         if self.model is None:
             print("New instance will be initialized")
             print(type(config.device))
@@ -103,6 +103,9 @@ class UNet:
         optimizer = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.l2_reg)
         st = time.perf_counter()
 
+        if epoch == 100:
+            print("No need to train the network...epoch is {}, returning...".format(epoch))
+            return
         print("Training the network....")
         for epoch in range(args.total_epochs):
             for i, images in enumerate(self.dataset):
@@ -117,7 +120,7 @@ class UNet:
                 optimizer.step()
 
 
-            print('epoch [{}/{}], loss:{:.4f}, time elapsed:{:.4f} (sec)'.format(epoch + 1, args.total_epochs,
+            print('epoch [{}/{}], loss:{:.4f}, time elapsed:{:.4f} (sec)'.format(epoch, args.total_epochs,
                                                                                        loss.data,
                                                                                        time.perf_counter() - st))
             st = time.perf_counter()
@@ -136,11 +139,11 @@ class UNet:
         We will save this in the
         :return: None
         """
-        print("Saving the trained model....")
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch + 1))
-        torch.save(self.model.state_dict(), dir)
+        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
+        print("Saving the trained model as....", dir)
 
+        torch.save(self.model.state_dict(), dir)
 
 
     def _load(self, epoch = 0):
@@ -152,10 +155,13 @@ class UNet:
 
         eva_dir = config.eva_dir
         dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
+
+        print("trying to load file ", dir)
         if os.path.exists(dir):
-            self.model = UNet_final(args.compressed_size).to(device=config.device, dtype=None, non_blocking=False)
-            state_dict = torch.load(dir)
-            self.model.load_state_dict(state_dict)
+
+            self.model = UNet_final(args.compressed_size).to(config.device, dtype=None, non_blocking=False)
+            self.model.load_state_dict(torch.load(dir))
+            print("Model successfully loaded!")
 
         else:
             print("Checkpoint doesn't exist... no model is loaded")

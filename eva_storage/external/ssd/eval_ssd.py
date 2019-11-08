@@ -13,7 +13,9 @@ import numpy as np
 import logging
 import sys
 from eva_storage.external.ssd.vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite, create_mobilenetv2_ssd_lite_predictor
+
 from eva_storage.external.ssd.vision.utils import box_utils
+
 
 
 parser = argparse.ArgumentParser(description="SSD Evaluation on VOC Dataset.")
@@ -392,9 +394,11 @@ def compute_average_precision_per_class(num_true_cases, gt_boxes, difficult_case
     precision = true_positive / (true_positive + false_positive)
     recall = true_positive / num_true_cases
 
+
     print("Printing stats for class...")
     print("true_positive", true_positive)
     print("false_positive", false_positive)
+
     print("precision is", precision)
     print("recall is", recall)
     if use_2007_metric:

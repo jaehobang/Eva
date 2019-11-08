@@ -9,9 +9,10 @@ import time
 from sklearn.ensemble import RandomForestClassifier
 from filters.models.ml_base import MLBase
 
+
 class MLRandomForest(MLBase):
   def __init__(self, **kwargs):
-    super(MLRandomForest, self).__init__()
+    super().__init__()
     if kwargs:
       self.model = RandomForestClassifier(max_depth=2, random_state=0)
     else:
@@ -19,10 +20,10 @@ class MLRandomForest(MLBase):
 
 
 
-
   def train(self, X :np.ndarray, y :np.ndarray):
+
     X = self._flatten_input(X)
-    y = self._check_label(y) ## make sure everythin is binary labels!!
+    y = self._check_label(y) ## make sure everything is binary labels!!
 
     n_samples = X.shape[0]
     division = int(n_samples * self.division_rate)
@@ -31,6 +32,8 @@ class MLRandomForest(MLBase):
     X_val = X[division:]
     y_val = y[division:]
 
+    print(X_train.shape)
+    print(y_train.shape)
     self.model.fit(X_train, y_train)
     tic = time.time()
     score = self.model.score(X_val, y_val)
@@ -42,9 +45,12 @@ class MLRandomForest(MLBase):
     self.A = score
     self.R = 1 - float(sum(y_hat)) / len(y_hat)
 
+
   def predict(self, X :np.ndarray):
     X = self._flatten_input(X)
     return self.model.predict(X)
+
+
 
   def _flatten_input(self, X):
     if X.ndim > 2:
@@ -55,7 +61,10 @@ class MLRandomForest(MLBase):
     else:
       return X
 
-  def _check_label(self, y):
+
+
+  def _check_label(self, y:np.ndarray):
+
     y[y > 1] = 1
 
     return y

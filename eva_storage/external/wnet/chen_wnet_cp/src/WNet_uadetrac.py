@@ -7,6 +7,7 @@ import sys, os
 sys.path.append(os.path.realpath('./src/data_io'))
 
 
+
 print("Current directory is ", os.getcwd())
 print("appending chen_wnet_cp/src...")
 curr_dir = os.path.join(os.getcwd(), 'eva_storage', 'external', 'wnet', 'chen_wnet_cp', 'src')
@@ -14,6 +15,7 @@ sys.path.append(curr_dir)
 import eva_storage.external.wnet.chen_wnet_cp.src.TensorflowUtils as utils
 from eva_storage.external.wnet.chen_wnet_cp.src.WNet_naive import Wnet_naive
 from eva_storage.external.wnet.chen_wnet_cp.src.soft_ncut import soft_ncut, brightness_weight, gaussian_neighbor, convert_to_batchTensor
+
 
 
 
@@ -134,7 +136,9 @@ class Wnet_uadetrac(Wnet_naive):
                 self.sess.run(tf.assign(self.reconst_learning_rate, reconst_lr))
                 self.sess.run(tf.assign(self.softNcut_learning_rate, softNcut_lr))
 
+
             train_images = train_dataset_reader.next_batch(self.flags.batch_size)
+
             feed_dict = {self.image:            train_images,
                          self.keep_probability: self.flags.dropout_rate,
                          self.phase_train:      True,
@@ -152,7 +156,9 @@ class Wnet_uadetrac(Wnet_naive):
                 self.train_writer.add_summary(summary_str, itr)
 
             if itr % 1000 == 0:
+
                 valid_images = validation_dataset_reader.get_random_batch(self.flags.batch_size)
+
                 valid_feed_dict[self.image] = valid_images
                 valid_feed_dict[self.keep_probability] = 1.0
                 valid_feed_dict[self.phase_train] = False
@@ -167,15 +173,19 @@ class Wnet_uadetrac(Wnet_naive):
 
 
 
+
 def create_uadetrac():
     from loaders.uadetrac_loader import UADetracLoader
     from eva_storage.external.wnet.chen_wnet_cp.src.data_io.BatchDatsetReader_VOC import BatchDatset
     loader = UADetracLoader()
+
     images = loader.load_cached_images()
     n_samples = images.shape[0]
     train_images = images[:int(0.8*n_samples)]
     test_images = images[int(0.8*n_samples):]
+
     train_dataset = BatchDatset(train_images, True) ## do we really need to do this or can we use uadetrac dataset that we already defined?
+
     test_dataset = BatchDatset(test_images, False)
     return train_dataset, test_dataset
 

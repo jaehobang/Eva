@@ -169,6 +169,7 @@ class FilterMinimum(FilterTemplate):
 
 
 
+
   def getAllStats(self):
     """
     TODO!!!!

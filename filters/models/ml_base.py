@@ -22,7 +22,7 @@ class MLBase(metaclass = ABCMeta):
     self.C = -1
     self.A = -1
     self.R = -1
-    self.division_rate= 0.8
+    self.division_rate = 0.8
     self.model = None
 
   @abstractmethod

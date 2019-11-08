@@ -13,7 +13,7 @@ from filters.models.ml_base import MLBase
 
 class MLSVM(MLBase):
     def __init__(self, **kwargs):
-        super(MLSVM, self).__init__()
+        super().__init__()
         if kwargs:
             self.model = LinearSVC(random_state=0)
         else:

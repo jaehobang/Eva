@@ -31,7 +31,6 @@ class WNet:
         self.image_size = 300
 
 
-
     def train(self, train_loader):
         learning_rate = 0.0001
         optimizer = torch.optim.Adam(self.model.parameters(), lr = learning_rate)
