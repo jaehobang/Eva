@@ -6,9 +6,9 @@ import datetime
 import sys, os
 sys.path.append(os.path.realpath('./src/data_io'))
 
-import TensorflowUtils as utils
-from data_io.BatchDatsetReader_VOC import create_BatchDatset
-from UNet import Unet
+import eva_storage.external.wnet.chen_wnet_cp.src.TensorflowUtils as utils
+from eva_storage.external.wnet.chen_wnet_cp.src.data_io.BatchDatsetReader_VOC import create_BatchDatset
+from eva_storage.external.wnet.chen_wnet_cp.src.UNet import Unet
 
 
 def tf_flags():
@@ -119,7 +119,7 @@ class Wnet_naive(Unet):
                 self.saver.save(self.sess, os.path.join(self.flags.logs_dir, "model.ckpt"), itr)
         return
 
-    def visaulize_pred(self, dataset_reader):
+    def visualize_pred(self, dataset_reader):
         """
         Predict segmentation of images random selected from dataset_reader.
         """
@@ -132,9 +132,9 @@ class Wnet_naive(Unet):
         pred = utils.batch_colorize_ndarray(pred, 0, self.flags.num_class, self.flags.cmap)[:,:,:,:3]
         
         for itr in range(self.flags.batch_size):
-            utils.save_image(valid_images[itr].astype(np.uint8), self.flags.logs_dir, name="inp_" + str(5+itr),mean=1)
-            utils.save_image(reconst_image[itr].astype(np.uint8), self.flags.logs_dir, name="gt_" + str(5+itr),mean=1)
-            utils.save_image(pred[itr].astype(np.uint8), self.flags.logs_dir, name="pred_" + str(5+itr),mean=1)
+            utils.save_image(valid_images[itr].astype(np.uint8), self.flags.logs_dir, name="inp_" + str(5+itr))
+            utils.save_image(reconst_image[itr].astype(np.uint8), self.flags.logs_dir, name="gt_" + str(5+itr))
+            utils.save_image(pred[itr].astype(np.uint8), self.flags.logs_dir, name="pred_" + str(5+itr))
             print("Saved image: %d" % itr)
         
         return valid_images, pred
@@ -197,5 +197,5 @@ if __name__ == '__main__':
             net.train_net(train_dataset_reader, validation_dataset_reader)
             
         elif flags.mode == "visualize":
-            valid_images, preds = net.visaulize_pred(validation_dataset_reader)
+            valid_images, preds = net.visualize_pred(validation_dataset_reader)
         

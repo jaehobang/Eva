@@ -76,7 +76,6 @@ class UNet_final(nn.Module):
 
     def create_decoder_b(self):
         self.u_decb1 = nn.Sequential()
-        # self.u_decb1.add_module('CT4_1', nn.ConvTranspose2d(64, 64, kernel_size = 2, stride = 2))
         self.u_decb1.add_module('Conv4_2', nn.Conv2d(48, 24, kernel_size=3, padding=(1, 1)))
         self.u_decb1.add_module('Relu4_3', nn.ReLU(True))
         self.u_decb1.add_module('Conv4_4', nn.Conv2d(24, 16, kernel_size=3, padding=(1, 1)))

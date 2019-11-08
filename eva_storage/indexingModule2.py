@@ -13,12 +13,12 @@ import cv2
 import torch
 import torch.nn as nn
 import argparse
+import config
 
 from eva_storage.models.Autoencoder import Autoencoder
 from sklearn.neighbors import NearestNeighbors
 
 
-DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Define arguments for loader')
 parser.add_argument('--learning_rate', type = int, default=0.0001, help='Learning rate for UNet')
@@ -42,7 +42,7 @@ class IndexingModule:
 
 
     def train(self, X_original:np.ndarray, X_segmented:np.ndarray, y:np.ndarray):
-        patches, patch_count_list = self.postProcess(X_original, X_segmented)
+        patches, patch_count_list = self._postProcess(X_original, X_segmented)
         self._trainNetwork(patches, patch_count_list)
         self._createIndex(patches, patch_count_list)
 
@@ -68,7 +68,7 @@ class IndexingModule:
 
         for i, data in enumerate(self.dataloader):
             img = data
-            img_cuda = img.to(DEVICE)
+            img_cuda = img.to(config.device)
             compressed, output = self.model(img_cuda)
             patches_compressed[(i * batch_size):(i * batch_size) + batch_size, :] = compressed.view(compressed.size(0),
                                                                                                     -1).cpu().detach().numpy()
@@ -95,14 +95,14 @@ class IndexingModule:
         patch_flattened = self._flattenPatches(patches, patch_count_list)
 
         self.dataloader = torch.utils.data.DataLoader(patch_flattened, batch_size=args.batch_size, shuffle=False, num_workers=4)
-        self.model.to(DEVICE)
+        self.model.to(config.device)
         distance = nn.MSELoss()
         optimizer = torch.optim.Adam(self.model.parameters(), weight_decay=1e-5)
         print("Training the network for indexing...")
         for epoch in range(args.total_epochs):
             for data in self.dataloader:
                 img = data
-                img_cuda = img.to(DEVICE)
+                img_cuda = img.to(config.device)
                 # ===================forward=====================
                 compressed, output = self.model(img_cuda)
                 loss = distance(output, img_cuda)
@@ -131,11 +131,7 @@ class IndexingModule:
         return patches_flattened
 
 
-
-
-
-
-    def postProcess(self, image_matrix:np.ndarray, seg_matrix:np.ndarray):
+    def _postProcess(self, image_matrix:np.ndarray, seg_matrix:np.ndarray):
         """
         perform post processing step (cv ops)
         :param seg_matrix: output of network (segmented images)
@@ -251,19 +247,3 @@ class IndexingModule:
                 new_patches.append(patch)
         return new_patches
 
-
-    def reorder_patches(self, cv_patches):
-        """
-        This function is needed because cv expects each box to take the format (left, top, width, height)
-        However, we normally want the format (top, left, bottom, right)
-        :param cv_patches: boxes that are in (left, top, width, height) format
-        :return: ml_patches: boxes that are in (top, left, bottom, right) format
-        """
-        if cv_patches == None:
-            return None
-        ml_patches = []
-        for patch in cv_patches:
-            left, top, width, height = patch
-            ml_patch = (top, left, top + height, left + width)
-            ml_patches.append(ml_patch)
-        return ml_patches

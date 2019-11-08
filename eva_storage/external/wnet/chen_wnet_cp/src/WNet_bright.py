@@ -5,22 +5,22 @@ import datetime
 import sys, os
 sys.path.append(os.path.realpath('./src/data_io'))
 
-import TensorflowUtils as utils
-from WNet_naive import Wnet_naive
-from soft_ncut import soft_ncut, brightness_weight, gaussian_neighbor, convert_to_batchTensor
-from data_io.BatchDatsetReader_VOC import create_BatchDatset
+import eva_storage.external.wnet.chen_wnet_cp.src.TensorflowUtils as utils
+from eva_storage.external.wnet.chen_wnet_cp.src.WNet_naive import Wnet_naive
+from eva_storage.external.wnet.chen_wnet_cp.src.soft_ncut import soft_ncut, brightness_weight, gaussian_neighbor, convert_to_batchTensor
+from eva_storage.external.wnet.chen_wnet_cp.src.data_io.BatchDatsetReader_VOC import create_BatchDatset
 
 
 def tf_flags():
     FLAGS = tf.flags.FLAGS
     tf.flags.DEFINE_integer("batch_size", "5", "batch size for training")
     tf.flags.DEFINE_integer("image_size", "128", "batch size for training")
-    tf.flags.DEFINE_integer('max_iteration', "50000", "max iterations")
+    tf.flags.DEFINE_integer('max_iteration', "100000", "max iterations")
     tf.flags.DEFINE_integer('decay_steps', "10000", "max iterations")
     tf.flags.DEFINE_integer('num_class', "21", "number of classes for segmentation")
     tf.flags.DEFINE_integer('num_layers', "5", "number of layers of UNet")
     tf.flags.DEFINE_string("cmap", "viridis", "color map for segmentation")
-    tf.flags.DEFINE_string("logs_dir", "WNet_bright_VOC_logs/", "path to logs directory")
+    tf.flags.DEFINE_string("logs_dir", "WNet_bright_UAD_logs/", "path to logs directory")
     tf.flags.DEFINE_string("test_dir", "data/test/", "path of test image")
     tf.flags.DEFINE_float("learning_rate", "5e-5", "Learning rate for Adam Optimizer")
     tf.flags.DEFINE_float("decay_rate", "0.5", "Decay rate of learning_rate")
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     
     flags = tf_flags()
     net = Wnet_bright(flags)
-    
+
     if flags.mode == "test":
         test_images, preds = net.plot_segmentation_under_test_dir()
     
@@ -177,5 +177,4 @@ if __name__ == '__main__':
             net.train_net(train_dataset_reader, validation_dataset_reader)
             
         elif flags.mode == "visualize":
-            valid_images, preds = net.visaulize_pred(validation_dataset_reader)
-        
+            valid_images, preds = net.visualize_pred(validation_dataset_reader)

@@ -10,8 +10,8 @@ import scipy.misc as misc
 import matplotlib.pyplot as plt
 sys.path.append(os.path.realpath('./src/data_io'))
 
-import TensorflowUtils as utils
-from data_io.BatchDatsetReader_VOC import create_BatchDatset
+import eva_storage.external.wnet.chen_wnet_cp.src.TensorflowUtils as utils
+from eva_storage.external.wnet.chen_wnet_cp.src.data_io.BatchDatsetReader_VOC import create_BatchDatset
 
 
 def tf_flags():
@@ -132,7 +132,7 @@ class Unet:
                 self.saver.save(self.sess, os.path.join(self.flags.logs_dir, "model.ckpt"), itr)
         return
     
-    def visaulize_pred(self, dataset_reader):
+    def visualize_pred(self, dataset_reader):
         """
         Predict segmentation of images random selected from dataset_reader.
         """
