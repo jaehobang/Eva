@@ -1,0 +1,23 @@
+1. We need to evaluate speed/accuracy vs non sampling -- try it on the whole dataset
+2. We need to evaluate speed/accuracy vs uniform sampling -- try it on the whole dataset
+
+
+To organize
+We need to confirm the results on
+a) machine learning models
+b) deep learning models
+
+Hence file should be
+
+eva_vs_nop__ml - evaluate eva vs doing it against no operations on machine learning models  (done)
+eva_vs_nop__dl - evaluate eva vs doing it against no operations on deep learning models
+eva_vs_uni__ml - evaluate eva vs doing it against uniform sampling on machine learning models
+eva_vs_uni__dl - evaluate eva vs doing it against uniform sampling on deep learning models
+
+For evaluting with ml, we used linearsvm, random forest -- the implementation supplied by scikit learn
+For training the filters, it is also important to define the distribution of the original dataset
+We must also state the filters were trained on a task that is not directly related -- for example, it is not actually an image classification task? 
+
+
+
+We can definitely confirm these results on other types of datasets as well....(2 more would be ideal)
