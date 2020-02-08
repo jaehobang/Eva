@@ -22,7 +22,8 @@ def create_image_lists(image_dir):
     Read 'image_dir/*/training' and 'image_dir/*/validation'
     into list of dict with keys: 'image', 'annotation', 'filename'
     """
-    
+    print("inside create_image_lists")
+    print(image_dir)
     if not gfile.Exists(image_dir):
         print("Image directory '" + image_dir + "' not found.")
         return None
@@ -37,6 +38,7 @@ def create_image_lists(image_dir):
         for image_file in image_lst:
             filename = image_file.split("/")[-1].split('.')[0]
             annotation_file = os.path.join(image_dir, 'SegmentationClass', filename + '.png')
+            print(f"annotation file: {annotation_file}")
             if os.path.exists(annotation_file):
                 record = {'image': image_file, 'annotation': annotation_file, 'filename': filename}
                 data.append(record)
@@ -46,14 +48,44 @@ def create_image_lists(image_dir):
                 
     print ('Nunmber of files: %d' %len(data))
     return data
-        
+
+
+def read_data_record(data_dir, validation_len=500):
+
+
+    pickle_filename = 'VOC_datalist.pickle'
+    pickle_filepath = os.path.join(data_dir, pickle_filename)
+    print("inside read_data_record")
+    print(data_dir)
+    print(pickle_filepath)
+
+    data = create_image_lists(data_dir)
+    print("-----done create image lists-------")
+    # Parse data into training and validation
+    training_data = data[validation_len:]
+    validation_data = data[:validation_len]
+    result = {'training': training_data, 'validation': validation_data}
+
+    print('Pickling ...')
+    with open(pickle_filepath, 'wb') as f:
+        pickle.dump(result, f, pickle.HIGHEST_PROTOCOL)
+
+
+    with open(pickle_filepath, 'rb') as f:
+        data_records = pickle.load(f)
+    return data_records
+
+"""        
 def read_data_record(data_dir, validation_len = 500):
-    """
+    
     Initialize list of datapath in data_dir if has not been initialized.
-    """
+    
     
     pickle_filename = 'VOC_datalist.pickle'
     pickle_filepath = os.path.join(data_dir, pickle_filename)
+    print("inside read_data_record")
+    print(data_dir)
+    print(pickle_filepath)
     if not os.path.exists(pickle_filepath):
         data = create_image_lists(data_dir)
         # Parse data into training and validation
@@ -70,6 +102,7 @@ def read_data_record(data_dir, validation_len = 500):
     with open(pickle_filepath, 'rb') as f:
         data_records = pickle.load(f)
     return data_records
+"""
 
 def download_if_no_data(dir_path, url_name):
     if not os.path.exists(dir_path):
@@ -102,10 +135,13 @@ def download_if_no_data(dir_path, url_name):
 def create_BatchDatset():
     print("Download if not VOC2012 exist...")
     url = 'http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar'
-    download_if_no_data('./data/', url)
+    ## need to harcode this directory since I am calling these functions from a different location
+    data_root = '/nethome/jbang36/eva/eva_storage/external/wnet/chen_wnet_cp/src/data/'
+
+    download_if_no_data(data_root, url)
     
     print("Initializing VOC2012 Batch Dataset Reader...")
-    data_record = read_data_record('./data/VOCdevkit/VOC2012')
+    data_record = read_data_record( os.path.join(data_root, 'VOCdevkit/VOC2012') )
     train_dataset = BatchDatset(data_record['training'], True)
     valid_dataset = BatchDatset(data_record['validation'], False)
     

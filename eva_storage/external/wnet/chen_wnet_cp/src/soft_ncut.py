@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-import TensorflowUtils as utils
+import eva_storage.external.wnet.chen_wnet_cp.src.TensorflowUtils as utils
 
 def sparse_tensor_dense_tensordot(sp_a, b, axes, name=None):
     r"""Tensor contraction of a and b along specified axes.

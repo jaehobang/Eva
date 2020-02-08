@@ -5,10 +5,10 @@ import datetime
 import sys, os
 sys.path.append(os.path.realpath('./src/data_io'))
 
-import TensorflowUtils as utils
-from WNet_naive import Wnet_naive
-from soft_ncut import soft_ncut, brightness_weight, gaussian_neighbor, convert_to_batchTensor
-from data_io.BatchDatsetReader_VOC import create_BatchDatset
+import eva_storage.external.wnet.chen_wnet_cp.src.TensorflowUtils as utils
+from eva_storage.external.wnet.chen_wnet_cp.src.WNet_naive import Wnet_naive
+from eva_storage.external.wnet.chen_wnet_cp.src.soft_ncut import soft_ncut, brightness_weight, gaussian_neighbor, convert_to_batchTensor
+from eva_storage.external.wnet.chen_wnet_cp.src.data_io.BatchDatsetReader_VOC import create_BatchDatset
 
 
 def tf_flags():
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     
     flags = tf_flags()
     net = Wnet_bright(flags)
-    
+
     if flags.mode == "test":
         test_images, preds = net.plot_segmentation_under_test_dir()
     
@@ -177,5 +177,5 @@ if __name__ == '__main__':
             net.train_net(train_dataset_reader, validation_dataset_reader)
             
         elif flags.mode == "visualize":
-            valid_images, preds = net.visaulize_pred(validation_dataset_reader)
+            valid_images, preds = net.visualize_pred(validation_dataset_reader)
         

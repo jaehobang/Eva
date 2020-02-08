@@ -29,6 +29,7 @@ class UADataset_lite:
 
 
     def get_annotation(self, id):
+
         num_boxes = len(self.y_train_boxes[id])
         is_difficult = [0] * num_boxes
         return id, (np.array(self.y_train_boxes[id], dtype = np.float32), np.array(self.y_train[id], dtype = np.int64), np.array(is_difficult, dtype = np.uint8))

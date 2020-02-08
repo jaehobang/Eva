@@ -130,9 +130,11 @@ def area_of(left_top, right_bottom) -> torch.Tensor:
     return hw[..., 0] * hw[..., 1]
 
 
+
+
 def iou_of(boxes0, boxes1, eps=1e-5):
     """Return intersection-over-union (Jaccard index) of boxes.
-
+    this function seems to assume boxes0, boxes1 are in corner format
     Args:
         boxes0 (N, 4): ground truth boxes.
         boxes1 (N or 1, 4): predicted boxes.
@@ -147,6 +149,8 @@ def iou_of(boxes0, boxes1, eps=1e-5):
     area0 = area_of(boxes0[..., :2], boxes0[..., 2:])
     area1 = area_of(boxes1[..., :2], boxes1[..., 2:])
     return overlap_area / (area0 + area1 - overlap_area + eps)
+
+
 
 
 def assign_priors(gt_boxes, gt_labels, corner_form_priors,
@@ -174,9 +178,11 @@ def assign_priors(gt_boxes, gt_labels, corner_form_priors,
     best_target_per_prior.index_fill_(0, best_prior_per_target_index, 2)
     # size: num_priors
     labels = gt_labels[best_target_per_prior_index]
-    labels[best_target_per_prior < iou_threshold] = 0  # the backgournd id
+    labels[best_target_per_prior < iou_threshold] = 0  # the background id
     boxes = gt_boxes[best_target_per_prior_index]
     return boxes, labels
+
+
 
 
 def hard_negative_mining(loss, labels, neg_pos_ratio):
