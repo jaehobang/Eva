@@ -42,7 +42,7 @@ class IndexingModule:
 
 
     def train(self, X_original:np.ndarray, X_segmented:np.ndarray, y:np.ndarray):
-        patches, patch_count_list = self._postProcess(X_original, X_segmented)
+        patches, patch_count_list = self.postProcess(X_original, X_segmented)
         self._trainNetwork(patches, patch_count_list)
         self._createIndex(patches, patch_count_list)
 
@@ -50,12 +50,14 @@ class IndexingModule:
 
     def _createIndex(self, patches:np.ndarray, patch_count_list:list):
         """
+        TODO: Finish this function
         creates boxes and organize them into patches
         :param seg_matrix: post processed segmented image matrix
         :return: patches
         """
         ### get compressed format. reshape it.
         ### compressed should be 9x16x16
+
         csize = 8
         cchannels = 9
         batch_size = 24
@@ -133,7 +135,7 @@ class IndexingModule:
 
 
 
-    def _postProcess(self, image_matrix:np.ndarray, seg_matrix:np.ndarray):
+    def postProcess(self, image_matrix:np.ndarray, seg_matrix:np.ndarray):
         """
         perform post processing step (cv ops)
         :param seg_matrix: output of network (segmented images)
@@ -249,3 +251,19 @@ class IndexingModule:
                 new_patches.append(patch)
         return new_patches
 
+
+    def reorder_patches(self, cv_patches):
+        """
+        This function is needed because cv expects each box to take the format (left, top, width, height)
+        However, we normally want the format (top, left, bottom, right)
+        :param cv_patches: boxes that are in (left, top, width, height) format
+        :return: ml_patches: boxes that are in (top, left, bottom, right) format
+        """
+        if cv_patches == None:
+            return None
+        ml_patches = []
+        for patch in cv_patches:
+            left, top, width, height = patch
+            ml_patch = (top, left, top + height, left + width)
+            ml_patches.append(ml_patch)
+        return ml_patches

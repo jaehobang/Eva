@@ -35,7 +35,7 @@ class UNet:
         self.data_dimensions = None
 
 
-    def createData(self, images:np.ndarray, segmented_images:np.ndarray):
+    def createData(self, images:np.ndarray, segmented_images:np.ndarray = None):
         """
         Creates the dataset for training
         :param images: original, unnormalized images
@@ -43,27 +43,39 @@ class UNet:
         :return:
         """
 
+        if segmented_images is None:
+            # we assume the data is not normalized...
+            assert (images.dtype == np.uint8)
 
-        # we assume the data is not normalized...
-        assert(images.dtype == np.uint8)
-        assert(segmented_images.dtype == np.uint8)
+            images_normalized = np.copy(images)
+            images_normalized = images_normalized.astype(np.float)
 
-        images_normalized = np.copy(images)
-        images_normalized = images_normalized.astype(np.float)
-        segmented_normalized = np.copy(segmented_images)
-        segmented_normalized = segmented_normalized.astype(np.float)
+            images_normalized /= 255.0
+            train_data = torch.from_numpy(images_normalized).float()
+            train_data = train_data.permute(0, 3, 1, 2)
 
-        images_normalized /= 255.0
-        train_data = torch.from_numpy(images_normalized).float()
-        train_data = train_data.permute(0,3,1,2)
+            return torch.utils.data.DataLoader(train_data)
 
-        segmented_normalized /= 255.0
-        seg_data = torch.from_numpy(segmented_normalized).float()
-        seg_data = seg_data.unsqueeze_(-1)
-        seg_data = seg_data.permute(0,3,1,2)
+        else:
+            # we assume the data is not normalized...
+            assert(images.dtype == np.uint8)
+            assert(segmented_images.dtype == np.uint8)
 
-        return torch.utils.data.DataLoader(torch.cat((train_data, seg_data), dim = 1))
+            images_normalized = np.copy(images)
+            images_normalized = images_normalized.astype(np.float)
+            segmented_normalized = np.copy(segmented_images)
+            segmented_normalized = segmented_normalized.astype(np.float)
 
+            images_normalized /= 255.0
+            train_data = torch.from_numpy(images_normalized).float()
+            train_data = train_data.permute(0,3,1,2)
+
+            segmented_normalized /= 255.0
+            seg_data = torch.from_numpy(segmented_normalized).float()
+            seg_data = seg_data.unsqueeze_(-1)
+            seg_data = seg_data.permute(0,3,1,2)
+
+            return torch.utils.data.DataLoader(torch.cat((train_data, seg_data), dim = 1))
 
 
     def train(self, images:np.ndarray, segmented_images:np.ndarray, load = True, epoch = 0):
@@ -73,15 +85,20 @@ class UNet:
         :param segmented_images: tmp_data
         :return: None
         """
+
+        self.data_dimensions = segmented_images.shape
+        self.dataset = self.createData(images, segmented_images)
+
         if load:
+
             self.load(epoch)
+
         if self.model is None:
             print("New instance will be initialized")
             print(type(config.device))
             self.model = UNet_final(args.compressed_size).to(device = config.device, dtype = None, non_blocking = False)
 
-        self.data_dimensions = segmented_images.shape
-        self.dataset = self.createData(images, segmented_images)
+
         distance = nn.MSELoss()
         optimizer = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.l2_reg)
         st = time.perf_counter()
@@ -106,16 +123,17 @@ class UNet:
             print('epoch [{}/{}], loss:{:.4f}, time elapsed:{:.4f} (sec)'.format(epoch, args.total_epochs,
                                                                                        loss.data,
                                                                                        time.perf_counter() - st))
+            st = time.perf_counter()
 
             if epoch % 10 == 0:
-                self.save(epoch)
+                self._save(epoch)
 
-        self.save(epoch)
+        self._save(epoch)
 
         return None
 
 
-    def save(self, epoch = 0):
+    def _save(self, epoch = 0):
         """
         Save the model
         We will save this in the
@@ -128,7 +146,7 @@ class UNet:
         torch.save(self.model.state_dict(), dir)
 
 
-    def load(self, epoch = 0):
+    def _load(self, epoch = 0):
         """
         Load the model
 
@@ -137,37 +155,45 @@ class UNet:
 
         eva_dir = config.eva_dir
         dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
+
         print("trying to load file ", dir)
         if os.path.exists(dir):
 
-            self.model = UNet_final(args.compressed_size).to(config.device)
+            self.model = UNet_final(args.compressed_size).to(config.device, dtype=None, non_blocking=False)
             self.model.load_state_dict(torch.load(dir))
             print("Model successfully loaded!")
-
 
         else:
             print("Checkpoint doesn't exist... no model is loaded")
 
 
-
-
-
-
-    def execute(self):
+    def execute(self, images:np.ndarray = None):
         """
-
+        We will overload this function to take in no parameters when we are just executing on the given image..
         :return: compressed, segmented images that are output of the network
         """
-        seg_data = np.ndarray(shape=self.data_dimensions)
-        compressed_data = np.ndarray(shape = (self.data_dimensions[0], args.compressed_size))
-        for i, images in enumerate(self.dataset):
-            images = images.to(config.device)
-            images_input = images[:,:3,:,:]
-            compressed, final = self.model(images_input)
-            final_cpu = self._convertSegmented(final)
-            compressed_cpu = self._convertCompressed(compressed)
-            seg_data[i * args.batch_size:(i + 1) * args.batch_size] = final_cpu
-            compressed_data[i*args.batch_size:(i + 1) * args.batch_size] = compressed_cpu
+        if images is None:
+            seg_data = np.ndarray(shape=self.data_dimensions)
+            compressed_data = np.ndarray(shape = (self.data_dimensions[0], args.compressed_size))
+            for i, images in enumerate(self.dataset):
+                images = images.to(config.device)
+                images_input = images[:,:3,:,:]
+                compressed, final = self.model(images_input)
+                final_cpu = self._convertSegmented(final)
+                compressed_cpu = self._convertCompressed(compressed)
+                seg_data[i * args.batch_size:(i + 1) * args.batch_size] = final_cpu
+                compressed_data[i*args.batch_size:(i + 1) * args.batch_size] = compressed_cpu
+        else:
+            dataset = self.createData(images)
+            seg_data = np.ndarray(shape=(images.shape[0], images.shape[1], images.shape[2]))
+            compressed_data = np.ndarray(shape=(images.shape[0], args.compressed_size))
+            for i, images in enumerate(dataset):
+                images = images.to(config.device)
+                compressed, final = self.model(images)
+                final_cpu = self._convertSegmented(final)
+                compressed_cpu = self._convertCompressed(compressed)
+                seg_data[i * args.batch_size:(i + 1) * args.batch_size] = final_cpu
+                compressed_data[i * args.batch_size:(i + 1) * args.batch_size] = compressed_cpu
 
 
         return compressed_data, seg_data

@@ -20,7 +20,7 @@ def tf_flags():
     tf.flags.DEFINE_integer('num_class', "21", "number of classes for segmentation")
     tf.flags.DEFINE_integer('num_layers', "5", "number of layers of UNet")
     tf.flags.DEFINE_string("cmap", "viridis", "color map for segmentation")
-    tf.flags.DEFINE_string("logs_dir", "WNet_bright_VOC_logs/", "path to logs directory")
+    tf.flags.DEFINE_string("logs_dir", "WNet_bright_UAD_logs/", "path to logs directory")
     tf.flags.DEFINE_string("test_dir", "data/test/", "path of test image")
     tf.flags.DEFINE_float("learning_rate", "5e-5", "Learning rate for Adam Optimizer")
     tf.flags.DEFINE_float("decay_rate", "0.5", "Decay rate of learning_rate")
@@ -178,4 +178,4 @@ if __name__ == '__main__':
             
         elif flags.mode == "visualize":
             valid_images, preds = net.visualize_pred(validation_dataset_reader)
-        
+

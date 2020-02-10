@@ -50,6 +50,8 @@ def create_image_lists(image_dir):
     return data
 
 
+"""
+>>>>>>> d6ca907e41561e83e81ccd43d506778ba47520f3
 def read_data_record(data_dir, validation_len=500):
 
 
@@ -103,6 +105,7 @@ def read_data_record(data_dir, validation_len = 500):
         data_records = pickle.load(f)
     return data_records
 """
+
 
 def download_if_no_data(dir_path, url_name):
     if not os.path.exists(dir_path):
