@@ -4,7 +4,13 @@ This file implements the logging manager that is used to create / print logs thr
 """
 
 import logging
+from enum import Enum
 
+class LoggingLevel(Enum):
+    DEBUG = 10
+    INFO = 20
+    WARNING = 30
+    ERROR = 40
 
 
 class Logger:
@@ -29,13 +35,28 @@ class Logger:
 
         return cls._instance
 
+    def setLogLevel(self, level: LoggingLevel):
+        self._LOG.setLevel(level.value)
 
+
+    def debug(self, message):
+        self._LOG.debug(message)
 
     def error(self, message):
         self._LOG.error(message)
 
-    def log(self, message):
+    def info(self, message):
         self._LOG.info(message)
+
+
+
+if __name__ == "__main__":
+    logger = Logger()
+    logger.debug("First debug message")
+    logger.info("First info message")
+    logger.setLogLevel(LoggingLevel.DEBUG)
+    logger.debug("Second debug message")
+    logger.info("Second info message")
 
 
 

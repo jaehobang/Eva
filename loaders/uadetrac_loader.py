@@ -70,6 +70,29 @@ class UADetracLoader(AbstractLoader):
         self.boxes = np.array(self.get_boxes(dir))
         return self.boxes
 
+    def load_images_debug(self, dir: str = None, image_size=None):
+        """
+        This function simply loads image of given image
+        :return: image_array (numpy)
+        """
+        if image_size is not None:
+            self.image_height = image_size
+            self.image_width = image_size
+
+        if dir == None:
+            dir = os.path.join(self.eva_dir, 'data', 'ua_detrac', args.image_path)
+
+        file_names = []
+        video_start_indices = []
+
+        mvi_directories = os.listdir(dir)
+        mvi_directories.sort()
+
+        print(mvi_directories)
+
+        # I also need to
+
+        return
 
     def load_images(self, dir:str = None, image_size = None):
         """
@@ -82,18 +105,23 @@ class UADetracLoader(AbstractLoader):
 
         if dir == None:
             dir = os.path.join(self.eva_dir, 'data', 'ua_detrac', args.image_path)
+
+
         file_names = []
-        video_start_indices = []
+        video_start_indices = [0]
+        video_length_indices = []
 
         mvi_directories = os.listdir(dir)
         mvi_directories.sort()
+
+
 
         for mvi_dir in mvi_directories:
             files = os.listdir(os.path.join(dir, mvi_dir))
             if files == []:
                 continue
             files.sort()
-            video_start_indices.append(len(files))
+            video_length_indices.append(len(files))
             for file in files:
                 file_names.append(os.path.join(dir, mvi_dir, file))
 
@@ -110,6 +138,8 @@ class UADetracLoader(AbstractLoader):
               img = cv2.resize(img, (self.image_width, self.image_height))
               self.images[i] = img
 
+        for i, length in enumerate(range(len(video_length_indices) - 1)):
+            video_start_indices.append( video_length_indices[i] + video_start_indices[i] )
         self.video_start_indices = np.array(video_start_indices)
 
         return self.images
@@ -383,6 +413,11 @@ class UADetracLoader(AbstractLoader):
 
                     start_frame = False
 
+                print("--------------")
+                print(len(car_labels_file))
+                print(self.video_start_indices[i])
+                if len(car_labels_file)!= self.video_start_indices[i]:
+                    print("mismatch between car labels file and video start indices", file)
 
                 assert(len(car_labels_file) == self.video_start_indices[i])
                 assert(len(speed_labels_file) == self.video_start_indices[i])
@@ -405,24 +440,6 @@ if __name__ == "__main__":
 
     st = time.time()
     loader = UADetracLoader()
-    images = loader.load_images()
-    labels = loader.load_labels()
-    boxes = loader.load_boxes()
+    ## there is a mismatch between images file and labels file for MVI_300761
 
-    print("Time taken to load everything from disk", time.time() - st, "seconds")
-    loader.save_boxes()
-    loader.save_labels()
-    loader.save_images()
-
-    st = time.time()
-    images_cached = loader.load_cached_images()
-    labels_cached = loader.load_cached_labels()
-    boxes_cached = loader.load_cached_boxes()
-    print("Time taken to load everything from npy", time.time() - st, "seconds")
-
-    assert (images.shape == images_cached.shape)
-    assert (boxes.shape == boxes_cached.shape)
-
-    for key, value in labels.items():
-        assert(labels[key] == labels_cached[key])
-    assert(labels.keys() == labels_cached.keys())
+    images = loader.load_cached_images()

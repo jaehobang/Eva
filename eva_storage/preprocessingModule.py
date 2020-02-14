@@ -12,6 +12,8 @@ import cv2
 import os
 import config
 from loaders.uadetrac_loader import UADetracLoader
+from eva_storage.logger import Logger, LoggingLevel
+
 
 TIMED = True
 
@@ -22,8 +24,20 @@ class PreprocessingModule:
         self.images = None
         self.video_start_indexes = None
         self.segmented_images = None
+        self.logger = Logger()
 
-    def run(self, images:np.ndarray, video_start_indices:list):
+
+    def debugMode(self, mode = False):
+        if mode:
+            self.logger.setLogLevel(LoggingLevel.DEBUG)
+        else:
+            self.logger.setLogLevel(LoggingLevel.INFO)
+
+
+
+    def run(self, images:np.ndarray, video_start_indices:list, load = False,
+                                     apply_post=False,
+                                     history=40, dist2Threshold=300, detectShadows=False):
         """
         Try loading the data
         If there is nothing to load, we have to manually go through the process
@@ -32,22 +46,34 @@ class PreprocessingModule:
         :param video_start_indices:
         :return:
         """
-        self._loadSegmentedImages()
+        self.logger.info("Starting Background Subtraction on given Video Dataset...")
+
+        if load:
+            self.logger.log("Trying to load from saved file....")
+            self._loadSegmentedImages()
+
+
 
         if self.segmented_images is None:
 
             # fgbg only takes grayscale images, we need to convert
-            images_gray = np.mean(images, axis = 3)
+            ## check if image is already converted to grayscale -> channels = 1
+            if images.ndim > 3:
+                self.logger.info(f"Data is not grayscale, converting....")
+                images_gray = (np.mean(images, axis = 3)).astype(np.uint8)
+
+            else:
+                self.logger.info("Data is grayscale!")
+                images_gray = images
+
 
             segmented_images = np.ndarray(shape = images_gray.shape, dtype = np.uint8)
-            for i in range(len(video_start_indices)):
+            for i in range(len(video_start_indices) - 1):
                 # start index is inclusive, end index is not inclusive
                 start_index = video_start_indices[i]
-                if i == len(video_start_indices) - 1:
-                    end_index = images_gray.shape[0]
-                else:
-                    end_index = video_start_indices[i + 1]
-                fgbg = cv2.createBackgroundSubtractorKNN(detectShadows = True)
+                end_index = video_start_indices[i+1]
+                self.logger.debug(f"start index: {start_index}, end index: {end_index}")
+                fgbg = cv2.createBackgroundSubtractorKNN(history=history, dist2Threshold=dist2Threshold, detectShadows=detectShadows)
 
                 # first round is to tune the values of the background subtractor
                 for ii in range(start_index, end_index):
@@ -57,7 +83,14 @@ class PreprocessingModule:
                 for ii in range(start_index, end_index):
                     segmented_images[ii] = fgbg.apply(images_gray[ii])
 
-            self.segmented_images = self._postfgbg(segmented_images)
+                self.logger.debug(f"Video {i} done! Processed {end_index - start_index} images")
+
+            if apply_post:
+                self.logger.debug("Applying post additional computer vision methods to background subtracted images...")
+                self.segmented_images = self._postfgbg(segmented_images)
+            else:
+                self.segmented_images = segmented_images
+
 
         return self.segmented_images
 
@@ -69,8 +102,7 @@ class PreprocessingModule:
         """
         ## tmp_data must be grayscale!
         if segmented_images.ndim > 3:
-            print("tmp_data must be grayscale!!")
-            print("  current dimension is", segmented_images.shape)
+            self.logger.error(f"Data must be grayscale!! Current dimension is {segmented_images.shape}")
             raise ValueError
 
 
@@ -90,26 +122,36 @@ class PreprocessingModule:
 
     def saveSegmentedImages(self, overwrite = False):
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'tmp_data', 'segmented_images.npy')
+        dir = os.path.join(eva_dir, 'data', 'npy_files', 'segmented_images.npy')
         if self.segmented_images is None:
-            print("Must apply the background subtraction algorithm first")
+            self.logger.error("Must apply the background subtraction algorithm first")
             return
         elif os.path.exists(dir) and overwrite == False:
-            print("Already saved segmented image file exists.. to overwrite, make sure the overwrite option is True")
+            self.logger.error("Already saved segmented image file exists.. to overwrite, make sure the overwrite option is True")
+
         else:
             np.save(dir, self.segmented_images)
+            self.logger.info(f"Saved segmented images to {dir}")
 
 
     def _loadSegmentedImages(self):
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'tmp_data', 'segmented_images.npy')
+        dir = os.path.join(eva_dir, 'data', 'npy_files', 'segmented_images.npy')
         if os.path.exists(dir):
             self.segmented_images = np.load(dir)
         else:
-            print("path", dir, "does not exist..")
+            self.logger.error(f"path: {dir} does not exist...")
 
 
 if __name__ == "__main__":
+    logger = Logger()
+    logger.info("logger instantiated...")
+
+    logger.debug("you should not see this")
+    logger.setLogLevel(LoggingLevel.DEBUG)
+    logger.debug("you should see this")
+
+    """
     loader = UADetracLoader()
     images = loader.load_images()
     labels = loader.load_labels()
@@ -118,6 +160,6 @@ if __name__ == "__main__":
     #images loaded as 300x300 - prepare the images
     preprocessor = PreprocessingModule()
     segmented_images = preprocessor.run(images, video_start_indices)
-
+    """
 
 
