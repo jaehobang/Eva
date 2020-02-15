@@ -70,8 +70,7 @@ class UADetracLoader(AbstractLoader):
         self.boxes = np.array(self.get_boxes(dir))
         return self.boxes
 
-
-    def load_images(self, dir:str = None, image_size = None):
+    def load_images_debug(self, dir: str = None, image_size=None):
         """
         This function simply loads image of given image
         :return: image_array (numpy)
@@ -82,6 +81,31 @@ class UADetracLoader(AbstractLoader):
 
         if dir == None:
             dir = os.path.join(self.eva_dir, 'data', 'ua_detrac', args.image_path)
+
+        file_names = []
+        video_start_indices = []
+
+        mvi_directories = os.listdir(dir)
+        mvi_directories.sort()
+
+        print(mvi_directories)
+
+        return
+
+
+    def load_images(self, dir:str = None, image_size=None):
+        """
+        This function simply loads image of given image
+        :return: image_array (numpy)
+        """
+        if image_size is not None:
+            self.image_height = image_size
+            self.image_width = image_size
+
+        if dir == None:
+            dir = os.path.join(self.eva_dir, 'data', 'ua_detrac', args.image_path)
+
+
         file_names = []
         video_start_indices = []
 
@@ -318,6 +342,18 @@ class UADetracLoader(AbstractLoader):
         for root, subdirs, files in os.walk(directory):
             if '.ipy' in root:
                 continue
+
+            ## need to take out swp files
+            for filename in files:
+                if ".swp" in filename:
+                    files.remove(filename)
+                elif ".swo" in filename:
+                    files.remove(filename)
+
+            ##as a sanity check, let's print files
+            print("before sorting operation", files)
+
+
             files.sort()
             print("files len", len(files))
             print(root, subdirs, files)
@@ -327,21 +363,30 @@ class UADetracLoader(AbstractLoader):
                     continue
                 tree = ET.parse(file_path)
                 tree_root = tree.getroot()
-                start_frame_num = 1
-                start_frame = True
 
                 car_labels_file = []
                 speed_labels_file =[]
                 color_labels_file = []
                 intersection_labels_file = []
+                curr_frame_num = 0
 
                 for frame in tree_root.iter('frame'):
+                    prev_frame_num = curr_frame_num
                     curr_frame_num = int(frame.attrib['num'])
+                    ## updated 1/21/2020 to accomdate xml files that doesn't have annotations in the middle
+                    if len(car_labels_file) + 1 != curr_frame_num:
+                        car_labels_file.extend( [None] * (curr_frame_num - prev_frame_num - 1))
+                        speed_labels_file.extend( [None] * (curr_frame_num - prev_frame_num - 1))
+                        color_labels_file.extend( [None] * (curr_frame_num - prev_frame_num - 1))
+                        intersection_labels_file.extend( [None] * (curr_frame_num - prev_frame_num - 1))
+
+                    """
                     if start_frame and curr_frame_num != start_frame_num:
                         car_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
                         speed_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
                         color_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
                         intersection_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
+                    """
 
                     car_per_frame = []
                     speed_per_frame = []
@@ -381,9 +426,24 @@ class UADetracLoader(AbstractLoader):
                     else:
                         intersection_labels_file.append(intersection_per_frame)
 
-                    start_frame = False
+                ## UPDATED: 1/21/2020 -- annotations might not be available at the end
+                if len(car_labels_file) < self.video_start_indices[i]:
+                    initial_car_labels_length = len(car_labels_file)
+                    car_labels_file.extend([None] * (self.video_start_indices[i] - initial_car_labels_length))
+                    speed_labels_file.extend([None] * (self.video_start_indices[i] - len(speed_labels_file)))
+                    intersection_labels_file.extend([None] * (self.video_start_indices[i] - len(intersection_labels_file)))
+                    color_labels_file.extend([None] * (self.video_start_indices[i] - len(color_labels_file)))
+                    print("FILE:", file, "has been modified to match length", "added", self.video_start_indices[i] - initial_car_labels_length, "more columns")
+                    print("-->>", len(car_labels_file))
+                    assert(len(car_labels_file) == self.video_start_indices[i])
+                elif len(car_labels_file) > self.video_start_indices[i]:
+                    print("ERROR: Annotation file has more files than actual images....something is wrong")
 
 
+                print("----------------")
+                print(file)
+                print(len(car_labels_file))
+                print(self.video_start_indices[i])
                 assert(len(car_labels_file) == self.video_start_indices[i])
                 assert(len(speed_labels_file) == self.video_start_indices[i])
                 assert(len(intersection_labels_file) == self.video_start_indices[i])
@@ -405,6 +465,17 @@ if __name__ == "__main__":
 
     st = time.time()
     loader = UADetracLoader()
+
+    ## frame mismatch between xml and actual files in MVI_39811
+    images = loader.load_cached_images()
+    print(images.shape)
+    video_start_indices = loader.get_video_start_indices()
+    labels = loader.load_labels(dir = '/nethome/jbang36/eva/data/ua_detrac/DETRAC-Train-Annotations-XML')
+
+
+
+
+    """
     images = loader.load_images()
     labels = loader.load_labels()
     boxes = loader.load_boxes()
@@ -426,3 +497,5 @@ if __name__ == "__main__":
     for key, value in labels.items():
         assert(labels[key] == labels_cached[key])
     assert(labels.keys() == labels_cached.keys())
+    
+    """

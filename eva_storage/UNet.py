@@ -47,11 +47,10 @@ class UNet:
             # we assume the data is not normalized...
             assert (images.dtype == np.uint8)
 
-            images_normalized = np.copy(images)
-            images_normalized = images_normalized.astype(np.float)
+            images_normalized = images.astype(np.float32)
 
             images_normalized /= 255.0
-            train_data = torch.from_numpy(images_normalized).float()
+            train_data = torch.from_numpy(images_normalized)
             train_data = train_data.permute(0, 3, 1, 2)
 
             return torch.utils.data.DataLoader(train_data)
@@ -61,17 +60,15 @@ class UNet:
             assert(images.dtype == np.uint8)
             assert(segmented_images.dtype == np.uint8)
 
-            images_normalized = np.copy(images)
-            images_normalized = images_normalized.astype(np.float)
-            segmented_normalized = np.copy(segmented_images)
-            segmented_normalized = segmented_normalized.astype(np.float)
+            images_normalized = images.astype(np.float32)
+            segmented_normalized = segmented_images.astype(np.float32)
 
             images_normalized /= 255.0
-            train_data = torch.from_numpy(images_normalized).float()
+            train_data = torch.from_numpy(images_normalized)
             train_data = train_data.permute(0,3,1,2)
 
             segmented_normalized /= 255.0
-            seg_data = torch.from_numpy(segmented_normalized).float()
+            seg_data = torch.from_numpy(segmented_normalized)
             seg_data = seg_data.unsqueeze_(-1)
             seg_data = seg_data.permute(0,3,1,2)
 
@@ -90,8 +87,8 @@ class UNet:
         self.dataset = self.createData(images, segmented_images)
 
         if load:
-
-            self.load(epoch)
+            print("loading previous model!")
+            self._load(epoch)
 
         if self.model is None:
             print("New instance will be initialized")
@@ -103,7 +100,7 @@ class UNet:
         optimizer = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.l2_reg)
         st = time.perf_counter()
 
-        if epoch == 100:
+        if epoch == 100 or epoch == 99:
             print("No need to train the network...epoch is {}, returning...".format(epoch))
             return
         print("Training the network....")
@@ -140,7 +137,7 @@ class UNet:
         :return: None
         """
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
+        dir = os.path.join(eva_dir, 'models', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
         print("Saving the trained model as....", dir)
 
         torch.save(self.model.state_dict(), dir)
@@ -154,7 +151,7 @@ class UNet:
         """
 
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'eva_storage', 'models', 'frozen', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
+        dir = os.path.join(eva_dir, 'models', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
 
         print("trying to load file ", dir)
         if os.path.exists(dir):

@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
     class_description_file = os.path.join(args.root, "class-descriptions-boxable.csv")
     if not os.path.exists(class_description_file):
-        url = "https://storage.googleapis.com/openimages/2018_04/class-descriptions-boxable.csv"
+        url = "https://temporal_filters.googleapis.com/openimages/2018_04/class-descriptions-boxable.csv"
         logging.warning(f"Download {url}.")
         http_download(url, class_description_file)
 
@@ -135,7 +135,7 @@ if __name__ == '__main__':
 
         annotation_file = f"{args.root}/{dataset_type}-annotations-bbox.csv"
         if not os.path.exists(annotation_file):
-            url = f"https://storage.googleapis.com/openimages/2018_04/{dataset_type}/{dataset_type}-annotations-bbox.csv"
+            url = f"https://temporal_filters.googleapis.com/openimages/2018_04/{dataset_type}/{dataset_type}-annotations-bbox.csv"
             logging.warning(f"Download {url}.")
             http_download(url, annotation_file)
         logging.warning(f"Read annotation file {annotation_file}")

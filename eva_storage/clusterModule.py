@@ -11,6 +11,7 @@ class ClusterModule:
         self.ac = None
 
     def run(self, image_compressed, fps=20):
+        print("Cluster module starting....")
         n_samples = len(image_compressed)
         self.ac = AgglomerativeClustering(n_clusters=n_samples // fps)
         start_time = time.time()
