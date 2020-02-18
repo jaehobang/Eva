@@ -13,6 +13,7 @@ import numpy as np
 import logging
 import sys
 from eva_storage.external.ssd.vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite, create_mobilenetv2_ssd_lite_predictor
+from eva_storage.external.ssd.vision.utils import box_utils
 
 from eva_storage.external.ssd.vision.utils import box_utils
 
@@ -394,11 +395,17 @@ def compute_average_precision_per_class(num_true_cases, gt_boxes, difficult_case
     precision = true_positive / (true_positive + false_positive)
     recall = true_positive / num_true_cases
 
+<<<<<<< HEAD
+    print("Printing stats for class...")
+    print("true_positive", true_positive)
+    print("false_positive", false_positive)
+=======
 
     print("Printing stats for class...")
     print("true_positive", true_positive)
     print("false_positive", false_positive)
 
+>>>>>>> d6ca907e41561e83e81ccd43d506778ba47520f3
     print("precision is", precision)
     print("recall is", recall)
     if use_2007_metric:

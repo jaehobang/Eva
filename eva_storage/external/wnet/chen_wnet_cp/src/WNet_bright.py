@@ -178,3 +178,4 @@ if __name__ == '__main__':
             
         elif flags.mode == "visualize":
             valid_images, preds = net.visualize_pred(validation_dataset_reader)
+

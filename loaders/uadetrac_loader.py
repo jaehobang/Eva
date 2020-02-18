@@ -17,6 +17,8 @@ from loaders.abstract_loader import AbstractLoader
 import warnings
 import argparse
 
+from eva_storage.logger import Logger, LoggingLevel
+
 parser = argparse.ArgumentParser(description='Define arguments for loader')
 parser.add_argument('--image_path', default='small-data', help='Define data folder within eva/data/uadetrac')
 parser.add_argument('--anno_path', default='small-annotations', help='Define annotation folder within eva/data/uadetrac')
@@ -49,6 +51,7 @@ class UADetracLoader(AbstractLoader):
         self.boxes = None
         self.eva_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.video_start_indices = np.array([])
+        self.logger = Logger()
 
 
     def load_video(self, dir:str):
@@ -59,16 +62,20 @@ class UADetracLoader(AbstractLoader):
         """
         return None
 
-    def load_boxes(self, dir:str = None):
-        """
-        Loads boxes from annotation
-        Should be same shape as self.labels
-        :return: boxes
-        """
-        if dir == None:
-            dir = os.path.join(self.eva_dir, 'data', 'ua_detrac', args.anno_path)
-        self.boxes = np.array(self.get_boxes(dir))
-        return self.boxes
+
+    def load_boxes(self, dir:str):
+        if self.boxes is None:
+            self.logger.info("Running load_labels first to get the boxes...")
+            self.load_labels(dir)
+        return self.get_boxes()
+
+
+
+    def debugMode(self, mode = False):
+        if mode:
+            self.logger.setLogLevel(LoggingLevel.DEBUG)
+        else:
+            self.logger.setLogLevel(LoggingLevel.INFO)
 
     def load_images_debug(self, dir: str = None, image_size=None):
         """
@@ -88,9 +95,14 @@ class UADetracLoader(AbstractLoader):
         mvi_directories = os.listdir(dir)
         mvi_directories.sort()
 
-        print(mvi_directories)
+        self.logger.debug(mvi_directories)
+
+
+
+        # I also need to
 
         return
+
 
 
     def load_images(self, dir:str = None, image_size=None):
@@ -107,21 +119,27 @@ class UADetracLoader(AbstractLoader):
 
 
         file_names = []
-        video_start_indices = []
+        video_start_indices = [0]
+        video_length_indices = []
 
         mvi_directories = os.listdir(dir)
         mvi_directories.sort()
 
+
+
         for mvi_dir in mvi_directories:
             files = os.listdir(os.path.join(dir, mvi_dir))
             if files == []:
+                self.logger.info(f"Directory {os.path.join(dir, mvi_dir)} doesn't contain any files!!")
                 continue
             files.sort()
-            video_start_indices.append(len(files))
+            video_length_indices.append(len(files))
             for file in files:
                 file_names.append(os.path.join(dir, mvi_dir, file))
 
-        print("Number of files added: ", len(file_names))
+        self.logger.debug(f"Number of directories: {len(mvi_directories)}")
+        self.logger.debug(f"Directories are: {mvi_directories}")
+        self.logger.info(f"Number of files added: {len(file_names)}")
 
         self.images = np.ndarray(shape=(
         len(file_names), self.image_height, self.image_width, self.image_channels),
@@ -134,6 +152,8 @@ class UADetracLoader(AbstractLoader):
               img = cv2.resize(img, (self.image_width, self.image_height))
               self.images[i] = img
 
+        for i, length in enumerate(range(len(video_length_indices))):
+            video_start_indices.append( video_length_indices[i] + video_start_indices[i] )
         self.video_start_indices = np.array(video_start_indices)
 
         return self.images
@@ -159,6 +179,20 @@ class UADetracLoader(AbstractLoader):
         else:
             return None
 
+    def get_boxes(self):
+        """
+        This function must be run after load_labels
+        :param dir:
+        :return:
+        """
+        if self.boxes is None:
+            self.logger.error("get_labels must be run before this function to obtain the boxes!")
+            raise ValueError
+
+        self.logger.debug(f"Total number of frames loaded: {len(self.boxes)}")
+        return self.boxes
+
+
 
     def get_video_start_indices(self):
         """
@@ -174,37 +208,43 @@ class UADetracLoader(AbstractLoader):
         save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_image_name)
         save_dir_vi = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_vi_name)
         if self.images is None:
-            warnings.warn("No image loaded, call load_images() first", Warning)
+            self.logger.error("No image loaded, call load_images() first")
         elif type(self.images) is np.ndarray:
             np.save(save_dir, self.images)
             np.save(save_dir_vi, np.array(self.video_start_indices))
-            print("saved images to", save_dir)
-            print("saved video indices to", save_dir_vi)
+            self.logger.info("saved images to", save_dir)
+            self.logger.info("saved video indices to", save_dir_vi)
         else:
-            warnings.warn("Image array type is not np.....cannot save", Warning)
+            self.logger.error("Image array type is not np.....cannot save")
+
 
 
     def save_labels(self):
         save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_label_name)
         if self.labels is None:
-            warnings.warn("No labels loaded, call load_labels() first", Warning)
+            self.logger.error("No labels loaded, call load_labels() first")
+
         elif type(self.labels) is dict:
             np.save(save_dir, self.labels, allow_pickle=True)
-            print("saved labels to", save_dir)
+            self.logger.info("saved labels to", save_dir)
+
         else:
-            warnings.warn("Labels type is not dict....cannot save", Warning)
-            print("labels type is ", type(self.labels))
+            self.logger.error(f"Expected labels type to be dict, got{type(self.labels)}")
+
 
 
     def save_boxes(self):
         save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_box_name)
         if self.images is None:
-            warnings.warn("No labels loaded, call load_boxes() first", Warning)
+            self.logger.error("No labels loaded, call load_boxes() first")
+
         elif type(self.images) is np.ndarray:
             np.save(save_dir, self.boxes)
-            print("saved boxes to", save_dir)
+            self.logger.info("saved boxes to", save_dir)
+
         else:
-            warnings.warn("Labels type is not np....cannot save", Warning)
+            self.logger.error("Labels type is not np....cannot save")
+
 
     def load_cached_images(self):
         save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_image_name)
@@ -225,48 +265,6 @@ class UADetracLoader(AbstractLoader):
         return self.labels
 
 
-    def get_boxes(self, anno_dir):
-        width = self.image_width
-        height = self.image_height
-        import xml.etree.ElementTree as ET
-        original_height = 540
-        original_width = 960
-        anno_files = os.listdir(anno_dir)
-        anno_files.sort()
-        boxes_dataset = []
-        cumu_count = 0
-        print(anno_files)
-
-        for anno_file in anno_files:
-            if ".xml" not in anno_file:
-                print("skipping", anno_file)
-                continue
-            file_path = os.path.join(anno_dir, anno_file)
-            print(file_path)
-
-            tree = ET.parse(file_path)
-            tree_root = tree.getroot()
-
-            for frame in tree_root.iter('frame'):
-                boxes_frame = []
-                curr_frame_num = int(frame.attrib['num'])
-                if len(boxes_dataset) < cumu_count + curr_frame_num - 1:
-                    boxes_dataset.extend([None] * (cumu_count + curr_frame_num - len(boxes_dataset)))
-                for box in frame.iter('box'):
-                    left = int(float(box.attrib['left']) * width / original_width)
-                    top = int(float(box.attrib['top']) * height / original_height)
-                    right = int((float(box.attrib['left']) + float(box.attrib['width'])) * width / original_width)
-                    bottom = int((float(box.attrib['top']) + float(box.attrib['height'])) * height / original_height)
-
-                    boxes_frame.append((top, left, bottom, right))
-
-            boxes_dataset.append(boxes_frame)
-
-
-        print(len(boxes_dataset))
-
-        return boxes_dataset
-
 
     def _convert_speed(self, original_speed):
         """
@@ -281,47 +279,8 @@ class UADetracLoader(AbstractLoader):
         return original_speed * 5
 
 
-    def get_boxes(self, anno_dir):
-        width = self.image_width
-        height = self.image_height
-        original_height = 540
-        original_width = 960
-        anno_files = os.listdir(anno_dir)
-        anno_files.sort()
-        boxes_dataset = []
-
-        print(anno_files)
-
-        for anno_file in anno_files:
-            if ".xml" not in anno_file:
-                print("skipping", anno_file)
-                continue
-            file_path = os.path.join(anno_dir, anno_file)
-            print(file_path)
-
-            tree = ET.parse(file_path)
-            tree_root = tree.getroot()
-
-            for frame in tree_root.iter('frame'):
-                boxes_frame = []
-                curr_frame_num = int(frame.attrib['num'])
-                if len(boxes_dataset) < curr_frame_num - 1:
-                    boxes_dataset.extend([None] * (curr_frame_num - len(boxes_dataset)))
-                    print("Adding None: number is ", curr_frame_num - len(boxes_dataset))
-                for box in frame.iter('box'):
-                    left = int(float(box.attrib['left']) * width / original_width)
-                    top = int(float(box.attrib['top']) * height / original_height)
-                    right = int((float(box.attrib['left']) + float(box.attrib['width'])) * width / original_width)
-                    bottom = int((float(box.attrib['top']) + float(box.attrib['height'])) * height / original_height)
-
-                    boxes_frame.append((top, left, bottom, right))
-
-                boxes_dataset.append(boxes_frame)
 
 
-        print(len(boxes_dataset))
-
-        return boxes_dataset
 
 
     def _load_XML(self, directory):
@@ -334,11 +293,19 @@ class UADetracLoader(AbstractLoader):
         speed_labels = []
         color_labels = []
         intersection_labels = []
+
+        width = self.image_width
+        height = self.image_height
+        original_height = 540
+        original_width = 960
+
+        boxes_dataset = []
+
         if self.images is None:
             warnings.warn("Must load image before loading labels...returning", Warning)
             return None
 
-        print("walking", directory, "for xml parsing")
+        self.logger.debug(f"walking {directory},for xml parsing")
         for root, subdirs, files in os.walk(directory):
             if '.ipy' in root:
                 continue
@@ -351,13 +318,17 @@ class UADetracLoader(AbstractLoader):
                     files.remove(filename)
 
             ##as a sanity check, let's print files
-            print("before sorting operation", files)
-
+            self.logger.debug(f"before sorting operation {files}")
 
             files.sort()
-            print("files len", len(files))
-            print(root, subdirs, files)
-            for i,file in enumerate(files):
+            self.logger.debug(f"{root} {subdirs} {files}")
+
+            self.logger.debug(f"length of video start indices: {len(self.video_start_indices)}")
+            self.logger.debug(self.video_start_indices)
+            self.logger.debug(f"length of files {len(files)}")
+            assert (len(self.video_start_indices) == len(files) + 1)
+
+            for i, file in enumerate(files):
                 file_path = os.path.join(root, file)
                 if ".swp" in file_path:
                     continue
@@ -365,46 +336,52 @@ class UADetracLoader(AbstractLoader):
                 tree_root = tree.getroot()
 
                 car_labels_file = []
-                speed_labels_file =[]
+                speed_labels_file = []
                 color_labels_file = []
                 intersection_labels_file = []
+                boxes_labels_file = []
                 curr_frame_num = 0
 
                 for frame in tree_root.iter('frame'):
+
                     prev_frame_num = curr_frame_num
                     curr_frame_num = int(frame.attrib['num'])
                     ## updated 1/21/2020 to accomdate xml files that doesn't have annotations in the middle
                     if len(car_labels_file) + 1 != curr_frame_num:
-                        car_labels_file.extend( [None] * (curr_frame_num - prev_frame_num - 1))
-                        speed_labels_file.extend( [None] * (curr_frame_num - prev_frame_num - 1))
-                        color_labels_file.extend( [None] * (curr_frame_num - prev_frame_num - 1))
-                        intersection_labels_file.extend( [None] * (curr_frame_num - prev_frame_num - 1))
+                        boxes_labels_file.extend([None] * (curr_frame_num - prev_frame_num - 1))
+                        car_labels_file.extend([None] * (curr_frame_num - prev_frame_num - 1))
+                        speed_labels_file.extend([None] * (curr_frame_num - prev_frame_num - 1))
+                        color_labels_file.extend([None] * (curr_frame_num - prev_frame_num - 1))
+                        intersection_labels_file.extend([None] * (curr_frame_num - prev_frame_num - 1))
 
-                    """
-                    if start_frame and curr_frame_num != start_frame_num:
-                        car_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
-                        speed_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
-                        color_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
-                        intersection_labels_file.append( [None] * (curr_frame_num - start_frame_num) )
-                    """
+                    boxes_per_frame = []
+                    for box in frame.iter('box'):
+                        left = int(float(box.attrib['left']) * width / original_width)
+                        top = int(float(box.attrib['top']) * height / original_height)
+                        right = int((float(box.attrib['left']) + float(box.attrib['width'])) * width / original_width)
+                        bottom = int((float(box.attrib['top']) + float(box.attrib['height'])) * height / original_height)
+
+                        boxes_per_frame.append((top, left, bottom, right))
 
                     car_per_frame = []
                     speed_per_frame = []
                     color_per_frame = []
                     intersection_per_frame = []
 
-
-
                     for att in frame.iter('attribute'):
                         if (att.attrib['vehicle_type']):
                             car_per_frame.append(att.attrib['vehicle_type'])
                         if (att.attrib['speed']):
-                            speed_per_frame.append( self._convert_speed(float(att.attrib['speed'])) )
+                            speed_per_frame.append(self._convert_speed(float(att.attrib['speed'])))
                         if ('color' in att.attrib.keys()):
                             color_per_frame.append(att.attrib['color'])
 
+                    assert (len(car_per_frame) == len(speed_per_frame))
 
-                    assert(len(car_per_frame) == len(speed_per_frame))
+                    if len(boxes_per_frame) == 0:
+                        boxes_labels_file.append(None)
+                    else:
+                        boxes_labels_file.append(boxes_per_frame)
 
                     if len(car_per_frame) == 0:
                         car_labels_file.append(None)
@@ -427,33 +404,40 @@ class UADetracLoader(AbstractLoader):
                         intersection_labels_file.append(intersection_per_frame)
 
                 ## UPDATED: 1/21/2020 -- annotations might not be available at the end
-                if len(car_labels_file) < self.video_start_indices[i]:
+                if len(car_labels_file) < self.video_start_indices[i + 1]:
                     initial_car_labels_length = len(car_labels_file)
-                    car_labels_file.extend([None] * (self.video_start_indices[i] - initial_car_labels_length))
-                    speed_labels_file.extend([None] * (self.video_start_indices[i] - len(speed_labels_file)))
-                    intersection_labels_file.extend([None] * (self.video_start_indices[i] - len(intersection_labels_file)))
-                    color_labels_file.extend([None] * (self.video_start_indices[i] - len(color_labels_file)))
-                    print("FILE:", file, "has been modified to match length", "added", self.video_start_indices[i] - initial_car_labels_length, "more columns")
-                    print("-->>", len(car_labels_file))
-                    assert(len(car_labels_file) == self.video_start_indices[i])
-                elif len(car_labels_file) > self.video_start_indices[i]:
-                    print("ERROR: Annotation file has more files than actual images....something is wrong")
+                    car_labels_file.extend([None] * (self.video_start_indices[i + 1] - initial_car_labels_length))
+                    speed_labels_file.extend([None] * (self.video_start_indices[i + 1] - len(speed_labels_file)))
+                    intersection_labels_file.extend(
+                        [None] * (self.video_start_indices[i + 1] - len(intersection_labels_file)))
+                    color_labels_file.extend([None] * (self.video_start_indices[i + 1] - len(color_labels_file)))
+                    boxes_labels_file.extend([None] * (self.video_start_indices[i + 1] - len(boxes_labels_file)))
+                    self.logger.debug(
+                        f"FILE: {file} has been modified to match length added {self.video_start_indices[i+1] - initial_car_labels_length} more columns")
+                    self.logger.debug(f"-->> {len(car_labels_file)}")
+                    assert (len(car_labels_file) == self.video_start_indices[i + 1])
+                elif len(car_labels_file) > self.video_start_indices[i + 1]:
+                    self.logger.error(
+                        f"Length mismatch len(car_labels_file) {len(car_labels_file)}, self.video_start_indices[i] {self.video_start_indices[i+1]}")
 
+                self.logger.debug("----------------")
+                self.logger.debug(file)
+                self.logger.debug(len(car_labels_file))
+                self.logger.debug(self.video_start_indices[i + 1])
 
-                print("----------------")
-                print(file)
-                print(len(car_labels_file))
-                print(self.video_start_indices[i])
-                assert(len(car_labels_file) == self.video_start_indices[i])
-                assert(len(speed_labels_file) == self.video_start_indices[i])
-                assert(len(intersection_labels_file) == self.video_start_indices[i])
-                assert(len(color_labels_file) == self.video_start_indices[i])
+                assert (len(car_labels_file) == self.video_start_indices[i + 1])
+                assert (len(speed_labels_file) == self.video_start_indices[i + 1])
+                assert (len(intersection_labels_file) == self.video_start_indices[i + 1])
+                assert (len(color_labels_file) == self.video_start_indices[i + 1])
+                assert (len(boxes_labels_file) == self.video_start_indices[i + 1])
 
                 car_labels.extend(car_labels_file)
                 speed_labels.extend(speed_labels_file)
                 intersection_labels.extend(intersection_labels_file)
                 color_labels.extend(color_labels_file)
+                boxes_dataset.append(boxes_labels_file)
 
+        self.boxes = boxes_dataset
 
         return [car_labels, speed_labels, color_labels, intersection_labels]
 
@@ -499,3 +483,4 @@ if __name__ == "__main__":
     assert(labels.keys() == labels_cached.keys())
     
     """
+

@@ -7,7 +7,6 @@ import sys, os
 sys.path.append(os.path.realpath('./src/data_io'))
 
 
-
 print("Current directory is ", os.getcwd())
 print("appending chen_wnet_cp/src...")
 curr_dir = os.path.join(os.getcwd(), 'eva_storage', 'external', 'wnet', 'chen_wnet_cp', 'src')
@@ -137,7 +136,9 @@ class Wnet_uadetrac(Wnet_naive):
                 self.sess.run(tf.assign(self.softNcut_learning_rate, softNcut_lr))
 
 
+
             train_images = train_dataset_reader.next_batch(self.flags.batch_size)
+
 
             feed_dict = {self.image:            train_images,
                          self.keep_probability: self.flags.dropout_rate,
@@ -158,6 +159,7 @@ class Wnet_uadetrac(Wnet_naive):
             if itr % 1000 == 0:
 
                 valid_images = validation_dataset_reader.get_random_batch(self.flags.batch_size)
+
 
                 valid_feed_dict[self.image] = valid_images
                 valid_feed_dict[self.keep_probability] = 1.0
@@ -184,7 +186,9 @@ def create_uadetrac():
     train_images = images[:int(0.8*n_samples)]
     test_images = images[int(0.8*n_samples):]
 
+
     train_dataset = BatchDatset(train_images, True) ## do we really need to do this or can we use uadetrac dataset that we already defined?
+
 
     test_dataset = BatchDatset(test_images, False)
     return train_dataset, test_dataset

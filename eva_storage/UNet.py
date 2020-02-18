@@ -8,6 +8,7 @@ import time
 import os
 import numpy as np
 from eva_storage.models.UNet_final import UNet_final
+from eva_storage.logger import Logger, LoggingLevel
 
 
 import torch
@@ -33,9 +34,28 @@ class UNet:
         self.model = None
         self.dataset = None
         self.data_dimensions = None
+        self.logger = Logger()
 
 
-    def createData(self, images:np.ndarray, segmented_images:np.ndarray = None):
+    def debugMode(self, mode = False):
+        if mode:
+            self.logger.setLogLevel(LoggingLevel.DEBUG)
+        else:
+            self.logger.setLogLevel(LoggingLevel.INFO)
+
+    def createDataExecute(self, images:np.ndarray, batch_size = args.batch_size):
+        assert(images.dtype == np.uint8)
+        images_normalized = np.copy(images)
+        images_normalized = images_normalized.astype(np.float)
+
+        images_normalized /= 255.0
+        train_data = torch.from_numpy(images_normalized).float()
+        train_data = train_data.permute(0, 3, 1, 2)
+
+        return torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=False, num_workers=4)
+
+
+    def createData(self, images:np.ndarray, segmented_images:np.ndarray, batch_size = args.batch_size):
         """
         Creates the dataset for training
         :param images: original, unnormalized images
@@ -43,39 +63,45 @@ class UNet:
         :return:
         """
 
-        if segmented_images is None:
-            # we assume the data is not normalized...
-            assert (images.dtype == np.uint8)
+        # we assume the data is not normalized...
+        assert(images.dtype == np.uint8)
+        assert(segmented_images.dtype == np.uint8)
 
-            images_normalized = images.astype(np.float32)
+        images_normalized = np.copy(images)
+        images_normalized = images_normalized.astype(np.float)
+        segmented_normalized = np.copy(segmented_images)
+        segmented_normalized = segmented_normalized.astype(np.float)
 
-            images_normalized /= 255.0
-            train_data = torch.from_numpy(images_normalized)
-            train_data = train_data.permute(0, 3, 1, 2)
+        images_normalized /= 255.0
+        train_data = torch.from_numpy(images_normalized).float()
+        train_data = train_data.permute(0,3,1,2)
 
-            return torch.utils.data.DataLoader(train_data)
+        segmented_normalized /= 255.0
+        seg_data = torch.from_numpy(segmented_normalized).float()
+        seg_data = seg_data.unsqueeze_(-1)
+        seg_data = seg_data.permute(0,3,1,2)
 
-        else:
-            # we assume the data is not normalized...
-            assert(images.dtype == np.uint8)
-            assert(segmented_images.dtype == np.uint8)
-
-            images_normalized = images.astype(np.float32)
-            segmented_normalized = segmented_images.astype(np.float32)
-
-            images_normalized /= 255.0
-            train_data = torch.from_numpy(images_normalized)
-            train_data = train_data.permute(0,3,1,2)
-
-            segmented_normalized /= 255.0
-            seg_data = torch.from_numpy(segmented_normalized)
-            seg_data = seg_data.unsqueeze_(-1)
-            seg_data = seg_data.permute(0,3,1,2)
-
-            return torch.utils.data.DataLoader(torch.cat((train_data, seg_data), dim = 1))
+        return torch.utils.data.DataLoader(torch.cat((train_data, seg_data), dim = 1), batch_size = batch_size, shuffle = False, num_workers = 4)
 
 
-    def train(self, images:np.ndarray, segmented_images:np.ndarray, load = True, epoch = 0):
+    def _parse_dir(self, directory_string):
+        """
+        This function is called by other methods in UNET to parse the directory string to extract model name and epoch
+        We will assume the format of the string is /dir/name/whatever/{model_name}-{epoch}.pth
+        :param directory_string: string of interest
+        :return:
+        """
+
+        tmp = directory_string.split('/')
+        tmp = tmp[-1]
+        model_name, epoch_w_pth = tmp.split('-')
+        epoch = int(epoch_w_pth.split('.')[0])
+        assert(type(epoch) == int)
+        assert(type(model_name) == str)
+        return model_name, epoch
+
+
+    def train(self, images:np.ndarray, segmented_images:np.ndarray, save_name, load_dir = None):
         """
         Trains the network with given images
         :param images: original images
@@ -83,16 +109,20 @@ class UNet:
         :return: None
         """
 
+
         self.data_dimensions = segmented_images.shape
         self.dataset = self.createData(images, segmented_images)
+        model_name = save_name
+        epoch = 0
 
-        if load:
-            print("loading previous model!")
-            self._load(epoch)
+        if load_dir is not None:
+            self.logger.info(f"Loading from {load_dir}")
+            self._load(load_dir)
+            model_name, epoch = self._parse_dir(load_dir)
 
         if self.model is None:
-            print("New instance will be initialized")
-            print(type(config.device))
+            ## load_dir might not have been specified, or load_dir is incorrect
+            self.logger.info(f"New model instance created on device {config.device}")
             self.model = UNet_final(args.compressed_size).to(device = config.device, dtype = None, non_blocking = False)
 
 
@@ -100,11 +130,9 @@ class UNet:
         optimizer = torch.optim.Adam(self.model.parameters(), lr=args.learning_rate, weight_decay=args.l2_reg)
         st = time.perf_counter()
 
-        if epoch == 100 or epoch == 99:
-            print("No need to train the network...epoch is {}, returning...".format(epoch))
-            return
-        print("Training the network....")
-        for epoch in range(args.total_epochs):
+
+        self.logger.info("Training the network....")
+        for ep in range(epoch, args.total_epochs):
             for i, images in enumerate(self.dataset):
                 images = images.to(config.device)
                 images_input = images[:,:3,:,:]
@@ -117,59 +145,70 @@ class UNet:
                 optimizer.step()
 
 
-            print('epoch [{}/{}], loss:{:.4f}, time elapsed:{:.4f} (sec)'.format(epoch, args.total_epochs,
+            self.logger.info('epoch [{}/{}], loss:{:.4f}, time elapsed:{:.4f} (sec)'.format(ep, args.total_epochs,
                                                                                        loss.data,
                                                                                        time.perf_counter() - st))
             st = time.perf_counter()
 
-            if epoch % 10 == 0:
-                self._save(epoch)
+            if ep % 30 == 0:
+                self._save(save_name, ep)
 
-        self._save(epoch)
-
+        self._save(save_name, args.total_epochs)
+        self.logger.info(f"Finished training the network and save as {save_name+str(args.total_epochs)+'.pth'}")
         return None
 
 
-    def _save(self, epoch = 0):
+    def _save(self, save_name, epoch = 0):
         """
         Save the model
         We will save this in the
         :return: None
         """
         eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'models', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
+        dir = os.path.join(eva_dir, 'data', 'models', '{}-epoch{}.pth'.format(save_name, epoch))
         print("Saving the trained model as....", dir)
 
         torch.save(self.model.state_dict(), dir)
 
 
-    def _load(self, epoch = 0):
+    def _load(self, load_dir):
         """
         Load the model
 
         :return:
         """
 
-        eva_dir = config.eva_dir
-        dir = os.path.join(eva_dir, 'models', '{}-epoch{}.pth'.format(args.checkpoint_name, epoch))
-
-        print("trying to load file ", dir)
-        if os.path.exists(dir):
+        if os.path.exists(load_dir): ## os.path.exists works on folders and files
 
             self.model = UNet_final(args.compressed_size).to(config.device, dtype=None, non_blocking=False)
-            self.model.load_state_dict(torch.load(dir))
-            print("Model successfully loaded!")
+            self.model.load_state_dict(torch.load(load_dir))
+            self.logger.info("Model load success!")
 
         else:
-            print("Checkpoint doesn't exist... no model is loaded")
+            self.logger.error("Checkpoint does not exist returning")
 
 
-    def execute(self, images:np.ndarray = None):
+    def execute(self, images:np.ndarray = None, load_dir = None):
         """
         We will overload this function to take in no parameters when we are just executing on the given image..
         :return: compressed, segmented images that are output of the network
         """
+
+        st = time.perf_counter()
+
+        if self.model is None:
+            if load_dir is None:
+                self.logger.error("There is no model and loading directory is not supplied. Value Error will be raised")
+                raise ValueError
+
+            if load_dir is not None:
+                self.logger.info(f"Loading from {load_dir}")
+                self._load(load_dir)
+
+        assert(self.model is not None)
+
         if images is None:
+            self.logger.info("Images are not given, assuming we already have dataset object...")
             seg_data = np.ndarray(shape=self.data_dimensions)
             compressed_data = np.ndarray(shape = (self.data_dimensions[0], args.compressed_size))
             for i, images in enumerate(self.dataset):
@@ -181,9 +220,12 @@ class UNet:
                 seg_data[i * args.batch_size:(i + 1) * args.batch_size] = final_cpu
                 compressed_data[i*args.batch_size:(i + 1) * args.batch_size] = compressed_cpu
         else:
-            dataset = self.createData(images)
+            self.logger.info("Images are given, creating dataset object and executing...    ")
+            dataset = self.createDataExecute(images)
             seg_data = np.ndarray(shape=(images.shape[0], images.shape[1], images.shape[2]))
             compressed_data = np.ndarray(shape=(images.shape[0], args.compressed_size))
+            self.logger.debug(f"Seg data projected shape {seg_data.shape}")
+            self.logger.debug(f"Compressed data projected shape {compressed_data.shape}")
             for i, images in enumerate(dataset):
                 images = images.to(config.device)
                 compressed, final = self.model(images)
@@ -193,7 +235,9 @@ class UNet:
                 compressed_data[i * args.batch_size:(i + 1) * args.batch_size] = compressed_cpu
 
 
-        return compressed_data, seg_data
+        self.logger.info(f"Processed {len(images)} in {time.perf_counter() - st} (sec)")
+
+        return compressed_data.astype(np.uint8), seg_data.astype(np.uint8)
 
 
     def _convertCompressed(self, compressed_image):

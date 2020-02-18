@@ -147,6 +147,32 @@ class MatchPrior(object):
         self.iou_threshold = iou_threshold
 
     def __call__(self, gt_boxes, gt_labels):
+        ## we expect the boxes to be in corner form
+        ## we then convert the boxes to center form and then convert them to locations
+        if type(gt_boxes) is np.ndarray:
+            gt_boxes = torch.from_numpy(gt_boxes)
+        if type(gt_labels) is np.ndarray:
+            gt_labels = torch.from_numpy(gt_labels)
+        boxes, labels = box_utils.assign_priors(gt_boxes, gt_labels,
+                                                self.corner_form_priors, self.iou_threshold)
+
+        boxes = box_utils.corner_form_to_center_form(boxes)
+
+        locations = box_utils.convert_boxes_to_locations(boxes, self.center_form_priors, self.center_variance, self.size_variance)
+        return locations, labels
+
+class MatchPriorModified(object):
+    def __init__(self, center_form_priors, center_variance, size_variance, iou_threshold):
+        self.center_form_priors = center_form_priors
+        self.corner_form_priors = box_utils.center_form_to_corner_form(center_form_priors)
+        self.center_variance = center_variance
+        self.size_variance = size_variance
+        self.iou_threshold = iou_threshold
+
+    def __call__(self, gt_boxes, gt_labels):
+        ## we expect the boxes to be in corner form
+        ## we will not convert to locations during training....
+        # let's only maintain center form
         if type(gt_boxes) is np.ndarray:
             gt_boxes = torch.from_numpy(gt_boxes)
         if type(gt_labels) is np.ndarray:
@@ -154,8 +180,9 @@ class MatchPrior(object):
         boxes, labels = box_utils.assign_priors(gt_boxes, gt_labels,
                                                 self.corner_form_priors, self.iou_threshold)
         boxes = box_utils.corner_form_to_center_form(boxes)
-        locations = box_utils.convert_boxes_to_locations(boxes, self.center_form_priors, self.center_variance, self.size_variance)
-        return locations, labels
+
+        return boxes, labels
+
 
 
 def _xavier_init_(m: nn.Module):

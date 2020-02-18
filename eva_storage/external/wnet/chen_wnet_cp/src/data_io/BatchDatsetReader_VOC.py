@@ -49,7 +49,9 @@ def create_image_lists(image_dir):
     print ('Nunmber of files: %d' %len(data))
     return data
 
+
 """
+>>>>>>> d6ca907e41561e83e81ccd43d506778ba47520f3
 def read_data_record(data_dir, validation_len=500):
 
 
@@ -77,9 +79,9 @@ def read_data_record(data_dir, validation_len=500):
 
 """        
 def read_data_record(data_dir, validation_len = 500):
-    """
+    
     Initialize list of datapath in data_dir if has not been initialized.
-    """
+    
     
     pickle_filename = 'VOC_datalist.pickle'
     pickle_filepath = os.path.join(data_dir, pickle_filename)
@@ -102,6 +104,7 @@ def read_data_record(data_dir, validation_len = 500):
     with open(pickle_filepath, 'rb') as f:
         data_records = pickle.load(f)
     return data_records
+"""
 
 
 def download_if_no_data(dir_path, url_name):
