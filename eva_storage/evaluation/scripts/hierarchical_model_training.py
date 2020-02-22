@@ -29,18 +29,13 @@ if __name__ == "__main__":
     video_start_indices = loader.get_video_start_indices()
     print(f"Done loading images in {time.time() - st} (sec)")
 
-    # 1. Load the images (cached images is fine)
-    test_images = loader.load_images(dir='/nethome/jbang36/eva_jaeho/data/ua_detrac/5_images')
-    test_video_start_indices = loader.get_video_start_indices()
-    test_labels = loader.load_labels(dir='/nethome/jbang36/eva_jaeho/data/ua_detrac/5_xml')
-    print(f"Done loading images in {time.time() - st} (sec)")
 
 
     directory_begin = '/nethome/jbang36/eva_jaeho/data/models/'
     model_names = ['history20_dist2thresh300',
-                   'history20_dist2thresh300_base_lvl2',
-                   'history20_dist2thresh300_base_lvl3',
-                   'history20_dist2thresh300_base_lvl4']
+                   'history20_dist2thresh300_bloat_lvl2',
+                   'history20_dist2thresh300_bloat_lvl3',
+                   'history20_dist2thresh300_bloat_lvl4']
 
     ## train the models
     for i in range(3):
@@ -50,6 +45,7 @@ if __name__ == "__main__":
         logger.info(f"initial model loading directory is {load_dir}")
 
         _, level_output = bare_model.execute(images, load_dir = load_dir)
+        level_output = postprocess.run_bloat(level_output) ## we will keep running bloat methods per iteration and see what happens
         level_model = UNet()
         level_model.train(images, level_output, model_names[i+1])
 
