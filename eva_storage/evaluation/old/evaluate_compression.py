@@ -3,23 +3,8 @@ This file is used to evaluate the compression method of the pipeline
 @Jaeho Bang
 """
 
-
-import numpy as np
-from loaders.uadetrac_loader import UADetracLoader
-from eva_storage.preprocessingModule import PreprocessingModule
-from eva_storage.UNet import UNet
-from eva_storage.clusterModule import ClusterModule
-from filters.minimum_filter import FilterMinimum
-
-import numpy as np
 #import utils.helpers as helpers
-import utils as helpers
-from loaders.uadetrac_loader import UADetracLoader
-from eva_storage.preprocessingModule import PreprocessingModule
-from eva_storage.UNet import UNet
-from eva_storage.clusterModule import ClusterModule
-from filters.minimum_filter import FilterMinimum
-from eva_storage.evaluation.evaluate_compression import *
+from eva_storage.evaluation.old.evaluate_compression import *
 
 
 

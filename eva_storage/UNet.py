@@ -211,9 +211,9 @@ class UNet:
             self.logger.info("Images are not given, assuming we already have dataset object...")
             seg_data = np.ndarray(shape=self.data_dimensions)
             compressed_data = np.ndarray(shape = (self.data_dimensions[0], args.compressed_size))
-            for i, images in enumerate(self.dataset):
-                images = images.to(config.device)
-                images_input = images[:,:3,:,:]
+            for i, images_ in enumerate(self.dataset):
+                images_ = images_.to(config.device)
+                images_input = images_[:,:3,:,:]
                 compressed, final = self.model(images_input)
                 final_cpu = self._convertSegmented(final)
                 compressed_cpu = self._convertCompressed(compressed)
@@ -226,9 +226,9 @@ class UNet:
             compressed_data = np.ndarray(shape=(images.shape[0], args.compressed_size))
             self.logger.debug(f"Seg data projected shape {seg_data.shape}")
             self.logger.debug(f"Compressed data projected shape {compressed_data.shape}")
-            for i, images in enumerate(dataset):
-                images = images.to(config.device)
-                compressed, final = self.model(images)
+            for i, images_ in enumerate(dataset):
+                images_ = images_.to(config.device)
+                compressed, final = self.model(images_)
                 final_cpu = self._convertSegmented(final)
                 compressed_cpu = self._convertCompressed(compressed)
                 seg_data[i * args.batch_size:(i + 1) * args.batch_size] = final_cpu

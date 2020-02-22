@@ -57,7 +57,7 @@ class PostprocessingModule:
             raise ValueError
 
 
-        self.logger.info("Starting Background Subtraction on given Video Dataset...")
+        self.logger.info("Starting CV functionalities on segmented images...")
         if load:
             self.logger.info("Trying to load from saved file....")
             self._loadPostprocessedImages()
@@ -105,12 +105,31 @@ class PostprocessingModule:
             patches = self.detect_patches(image)
             new_patches = self.filter_patches(patches)
             self.logger.debug(f"Number of unfiltered boxes {len(patches)}, Number of filtered boxes {len(new_patches)}")
-            # new_patches = reorder_patches(new_patches) TODO: Need to check if this needs to be updated... We can simply see the score to examine the TODO
-            self.filtered_boxes.append(new_patches)
-            self.unfiltered_boxes.append(patches)
+            filtered_patches =self.format_patches(new_patches)
+            unfiltered_patches = self.format_patches(patches)
+
+            self.filtered_boxes.append(filtered_patches)
+            self.unfiltered_boxes.append(unfiltered_patches)
 
         self.logger.info(f"Done with box detection in {time.perf_counter() - st} (sec)")
         return self.unfiltered_boxes, self.filtered_boxes
+
+    def format_patches(self, cv_box_format):
+        """
+        The reason we have to format patches in the first place is becausecv outputs coordinates as follows: [left, top, width, height]
+        However, nobody does this.... we will use the format: [left, top, right, bottom]
+        :param patch:
+        :return:
+        """
+
+        ## we will assume patches are in a 2d list
+        conventional_box_format = []
+        for i in range(len(cv_box_format)):
+            left, top, width, height = cv_box_format[i]
+            conventional_box_format.append([left, top, left+width, top+height])
+        assert(len(conventional_box_format) == len(cv_box_format))
+        return conventional_box_format
+
 
 
     def filter_patches(self, patches, img_height=300, img_width=300,

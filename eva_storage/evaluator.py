@@ -20,6 +20,7 @@ class Evaluator:
 
 
 
+
     # ground_truth_list: list of ground truth boxes where each element refers to all the boxes existing in the frame
     # proposed_list: list of proposed boxes where each element refers to all the boxes existing in the frame
     # filter: whether to give some filtering arguments such as minimum size / aspect ratio
@@ -60,6 +61,7 @@ class Evaluator:
         return precision, recall
 
 
+
     def filter_ground_truth(self, ground_truth_list, input_patch_type='ml', output_patch_type='ml'):
         new_ground_truth_list = []
         if input_patch_type == 'ml':
@@ -82,6 +84,7 @@ class Evaluator:
         return new_ground_truth_list
 
 
+
     def ml2cv_patches(self, ml_patches):
         # cv convention is (left, top, width, height)
         if ml_patches == None:
@@ -94,6 +97,7 @@ class Evaluator:
         return cv_patches
 
 
+
     def cv2ml_patches(self, cv_patches):
         if cv_patches == None:
             return None
@@ -103,6 +107,7 @@ class Evaluator:
             ml_patch = (top, left, top + height, left + width)
             ml_patches.append(ml_patch)
         return ml_patches
+
 
 
     def filter_patches(self, patches, img_height=300, img_width=300,
@@ -125,6 +130,7 @@ class Evaluator:
                     ratio_patch >= min_ratio_patch and ratio_patch <= max_ratio_patch:
                 new_patches.append(patch)
         return new_patches
+
 
 
     def compute_overlap(self, ground_truth_frame, proposed_list_frame, iou=0.5):
@@ -173,6 +179,12 @@ class Evaluator:
 
                     p_area = (p_right - p_left) * (p_bottom - p_top)
                     g_area = (g_right - g_left) * (g_bottom - g_top)
+
+
+                    if p_area < 0 or g_area < 0:
+                        self.logger.error(f"p_area: {p_area}, g_area: {g_area}...should never be less than 0!!!!")
+                    if (p_area + g_area - overlap_area) <= 0:
+                        self.logger.error(f"Denominator is {p_area + g_area - overlap_area}. This value should not be less than or equal to zero")
                     if overlap_area / (p_area + g_area - overlap_area) >= iou:
                         tp_count += 1
                         matching_box = True
