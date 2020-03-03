@@ -8,6 +8,7 @@ import time
 import os
 import numpy as np
 from eva_storage.models.UNet_final import UNet_final
+from eva_storage.models.UNet_compressed import UNet_compressed
 from eva_storage.logger import Logger, LoggingLevel
 
 
@@ -20,7 +21,7 @@ import config
 
 parser = argparse.ArgumentParser(description='Define arguments for loader')
 parser.add_argument('--learning_rate', type = int, default=0.0001, help='Learning rate for UNet')
-parser.add_argument('--total_epochs', type = int, default=100, help='Number of epoch for training')
+parser.add_argument('--total_epochs', type = int, default=60, help='Number of epoch for training')
 parser.add_argument('--l2_reg', type = int, default=1e-6, help='Regularization constaint for training')
 parser.add_argument('--batch_size', type = int, default = 64, help='Batch size used for training')
 parser.add_argument('--compressed_size', type = int, default = 100, help='Number of features the compressed image format has')
@@ -30,11 +31,13 @@ args = parser.parse_args()
 
 class UNet:
 
-    def __init__(self):
+    def __init__(self, type = 0):
         self.model = None
         self.dataset = None
         self.data_dimensions = None
         self.logger = Logger()
+        self.network_type = type ## for now, type will denoting whether we are using a compressed or full network
+
 
 
     def debugMode(self, mode = False):
@@ -122,8 +125,11 @@ class UNet:
 
         if self.model is None:
             ## load_dir might not have been specified, or load_dir is incorrect
-            self.logger.info(f"New model instance created on device {config.device}")
-            self.model = UNet_final(args.compressed_size).to(device = config.device, dtype = None, non_blocking = False)
+            self.logger.info(f"New model instance created on device {config.train_device}")
+            if self.network_type == 0:
+                self.model = UNet_final(args.compressed_size).to(device = config.train_device, dtype = None, non_blocking = False)
+            elif self.network_type == 1:
+                self.model = UNet_compressed(args.compressed_size).to(device = config.train_device, dtype = None, non_blocking = False)
 
 
         distance = nn.MSELoss()
@@ -134,7 +140,7 @@ class UNet:
         self.logger.info("Training the network....")
         for ep in range(epoch, args.total_epochs):
             for i, images in enumerate(self.dataset):
-                images = images.to(config.device)
+                images = images.to(config.train_device)
                 images_input = images[:,:3,:,:]
                 images_output = images[:,3:,:,:]
                 compressed, final = self.model(images_input)
@@ -154,7 +160,7 @@ class UNet:
                 self._save(save_name, ep)
 
         self._save(save_name, args.total_epochs)
-        self.logger.info(f"Finished training the network and save as {save_name+str(args.total_epochs)+'.pth'}")
+        self.logger.info(f"Finished training the network and save as {save_name+'-epoch'+str(args.total_epochs)+'.pth'}")
         return None
 
 
@@ -171,7 +177,7 @@ class UNet:
         torch.save(self.model.state_dict(), dir)
 
 
-    def _load(self, load_dir):
+    def _load(self, load_dir, execute = False):
         """
         Load the model
 
@@ -180,7 +186,19 @@ class UNet:
 
         if os.path.exists(load_dir): ## os.path.exists works on folders and files
 
-            self.model = UNet_final(args.compressed_size).to(config.device, dtype=None, non_blocking=False)
+            if execute:
+                if self.network_type == 0:
+                    self.model = UNet_final(args.compressed_size).to(config.eval_device, dtype=None, non_blocking=False)
+                elif self.network_type == 1:
+                    self.model = UNet_compressed(args.compressed_size).to(config.eval_device, dtype=None,
+                                                                     non_blocking=False)
+            else:
+                if self.network_type == 0:
+                    self.model = UNet_final(args.compressed_size).to(config.eval_device, dtype=None, non_blocking=False)
+                if self.network_type == 0:
+                    self.model = UNet_final(args.compressed_size).to(config.eval_device, dtype=None, non_blocking=False)
+                self.model = UNet_final(args.compressed_size).to(config.train_device, dtype=None, non_blocking=False)
+
             self.model.load_state_dict(torch.load(load_dir))
             self.logger.info("Model load success!")
 
@@ -196,23 +214,25 @@ class UNet:
 
         st = time.perf_counter()
 
-        if self.model is None:
-            if load_dir is None:
-                self.logger.error("There is no model and loading directory is not supplied. Value Error will be raised")
-                raise ValueError
+        if load_dir is not None:
+            self.logger.info(f"Loading from {load_dir}")
+            self._load(load_dir, execute=True)
 
-            if load_dir is not None:
-                self.logger.info(f"Loading from {load_dir}")
-                self._load(load_dir)
+        if self.model is None:
+            self.logger.error("There is no model and loading directory is not supplied. Value Error will be raised")
+            raise ValueError
+
 
         assert(self.model is not None)
+        #self.logger.debug(f"Model on gpu device {self.model.get_device()}, running execution on gpu device {config.eval_device}")
 
         if images is None:
             self.logger.info("Images are not given, assuming we already have dataset object...")
+
             seg_data = np.ndarray(shape=self.data_dimensions)
             compressed_data = np.ndarray(shape = (self.data_dimensions[0], args.compressed_size))
             for i, images_ in enumerate(self.dataset):
-                images_ = images_.to(config.device)
+                images_ = images_.to(config.eval_device)
                 images_input = images_[:,:3,:,:]
                 compressed, final = self.model(images_input)
                 final_cpu = self._convertSegmented(final)
@@ -227,7 +247,7 @@ class UNet:
             self.logger.debug(f"Seg data projected shape {seg_data.shape}")
             self.logger.debug(f"Compressed data projected shape {compressed_data.shape}")
             for i, images_ in enumerate(dataset):
-                images_ = images_.to(config.device)
+                images_ = images_.to(config.eval_device)
                 compressed, final = self.model(images_)
                 final_cpu = self._convertSegmented(final)
                 compressed_cpu = self._convertCompressed(compressed)

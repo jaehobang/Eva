@@ -47,6 +47,7 @@ class PostprocessingModule:
         """
 
         st = time.perf_counter()
+        self.postprocessed_images = None
 
         if images.ndim != 3:
             self.logger.error(f"Expected images to have squeezed depth channel, but shape of matrix is {images.shape}")
@@ -86,6 +87,112 @@ class PostprocessingModule:
 
         self.logger.info(f"Done in {time.perf_counter() - st} (sec)")
         return self.postprocessed_images
+
+
+    def run_erosion(self, images:np.ndarray, load = False):
+        """
+        Try loading the data
+        If there is nothing to load, we have to manually go through the process
+
+        :param images:
+        :param video_start_indices:
+        :return:
+        """
+
+        st = time.perf_counter()
+        self.postprocessed_images = None
+
+        if images.ndim != 3:
+            self.logger.error(f"Expected images to have squeezed depth channel, but shape of matrix is {images.shape}")
+            raise ValueError
+
+        if images.dtype != np.uint8:
+            self.logger.error(f"Expected images to be of dtype np.uint8 but got {images.dtype}")
+            raise ValueError
+
+        self.logger.info("Starting CV functionalities on segmented images...")
+        if load:
+            self.logger.info("Trying to load from saved file....")
+            self._loadPostprocessedImages()
+
+        if self.postprocessed_images is None:
+
+            postprocessed_images = np.ndarray(shape=images.shape)
+            kernel = np.ones((3, 3), np.uint8)
+
+            # fgbg only takes grayscale images, we need to convert
+            ## check if image is already converted to grayscale -> channels = 1
+
+            for i in range(images.shape[0]):
+                image = images[i]
+
+                seg_cp = np.copy(image)
+
+                med = cv2.medianBlur(seg_cp, 5)
+                erosion = cv2.erode(med, kernel, iterations=3)
+                ret, otsu_m = cv2.threshold(erosion, 0, 255, cv2.THRESH_OTSU)
+                postprocessed_images[i] = otsu_m
+
+            self.postprocessed_images = postprocessed_images.astype(np.uint8)
+
+        self.logger.info(f"Done in {time.perf_counter() - st} (sec)")
+        return self.postprocessed_images
+
+
+
+    def run_bloat(self, images:np.ndarray, load = False):
+        """
+        Try loading the data
+        If there is nothing to load, we have to manually go through the process
+
+        :param images:
+        :param video_start_indices:
+        :return:
+        """
+
+        st = time.perf_counter()
+        self.postprocessed_images = None
+
+        if images.ndim != 3:
+            self.logger.error(f"Expected images to have squeezed depth channel, but shape of matrix is {images.shape}")
+            raise ValueError
+
+        if images.dtype != np.uint8:
+            self.logger.error(f"Expected images to be of dtype np.uint8 but got {images.dtype}")
+            raise ValueError
+
+
+        self.logger.info("Starting CV functionalities on segmented images...")
+        if load:
+            self.logger.info("Trying to load from saved file....")
+            self._loadPostprocessedImages()
+
+
+
+        if self.postprocessed_images is None:
+
+            postprocessed_images = np.ndarray(shape=images.shape)
+            kernel = np.ones((3, 3), np.uint8)
+
+            # fgbg only takes grayscale images, we need to convert
+            ## check if image is already converted to grayscale -> channels = 1
+
+            for i in range(images.shape[0]):
+                image = images[i]
+
+                seg_cp = np.copy(image)
+                med = cv2.medianBlur(seg_cp, 5)
+                dilation = cv2.dilate(med, kernel, iterations=3)
+                ret, otsu_m = cv2.threshold(dilation, 0, 255, cv2.THRESH_OTSU)
+                postprocessed_images[i] = otsu_m
+
+
+            self.postprocessed_images = postprocessed_images.astype(np.uint8)
+
+
+        self.logger.info(f"Done in {time.perf_counter() - st} (sec)")
+        return self.postprocessed_images
+
 
 
     def detectBoxes(self, postprocessed_images):

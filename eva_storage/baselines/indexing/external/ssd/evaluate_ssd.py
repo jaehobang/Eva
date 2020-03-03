@@ -13,17 +13,17 @@ class UADataset_lite:
             root: the root of the VOC2007 or VOC2012 dataset, the directory contains the following sub-directories:
                 Annotations, ImageSets, JPEGImages, SegmentationClass, SegmentationObject.
         """
-        self.class_names = ['BACKGROUND', 'car', 'bus', 'others', 'van']
+        self.class_names = ['BACKGROUND', 'car', 'bus', 'others', 'van'] ## i think we need to take out background.... either that or class names have to be 5
         self.class_dict = {class_name: i for i, class_name in enumerate(self.class_names)}
         self.transform = transform
         self.target_transform = target_transform
 
 
-    def set_x(self, images):
+    def set_images(self, images):
         self.X_train = images
 
 
-    def set_y(self, labels):
+    def set_labels(self, labels):
         labels = self.convert_labels(labels)
         self.y_train = labels
 
@@ -37,7 +37,7 @@ class UADataset_lite:
 
     def get_image(self, index):
         image_id = index
-        image = self.X_tarin[image_id]
+        image = self.X_train[image_id]
         if self.transform:
             image, _ = self.transform(image)
         return image
@@ -46,7 +46,7 @@ class UADataset_lite:
         return self.X_train[index]
 
 
-    def set_y_boxes(self, boxes):
+    def set_boxes(self, boxes):
         boxes = self.convert_boxes(boxes)
         self.y_train_boxes = boxes
 
@@ -92,6 +92,7 @@ class UADataset_lite:
         labels = self.y_train[index]
         boxes = np.array(boxes, dtype=np.float32)
         labels = np.array(labels, dtype=np.int)
+
         ## image, boxes, labels
         if self.transform:
             image, boxes, labels = self.transform(image, boxes, labels)
@@ -102,11 +103,10 @@ class UADataset_lite:
         return image, boxes, labels
 
 
-
-
-
     def __len__(self):
         return len(self.X_train)
+
+
 
 
 class UADataset:

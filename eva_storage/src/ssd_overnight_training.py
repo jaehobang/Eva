@@ -3,25 +3,21 @@ This file defines the process to train overnight and save the model...
 @Jaeho Bang
 """
 
-
-
-
-import os
 import sys
 sys.path.append('../../')
 
-import eva_storage.evaluation.evaluate_ssd as evaluate_ssd
+import eva_storage.evaluation.old.evaluate_ssd as evaluate_ssd
 from loaders.uadetrac_loader import UADetracLoader
 
 import os
 import logging
 import itertools
 import torch
-from torch.utils.data import DataLoader, ConcatDataset
-from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
+from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import MultiStepLR
 
 
-from eva_storage.external.ssd.vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
+from eva_storage.external.ssd.vision.utils.misc import Timer, freeze_net_layers
 from eva_storage.external.ssd.vision.ssd.ssd import MatchPriorModified
 from eva_storage.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd
 from eva_storage.external.ssd.vision.nn.multibox_loss import MultiboxLoss

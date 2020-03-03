@@ -1,0 +1,6 @@
+This file is to keep track of which experiments are where
+
+
+1. SSD Evaluation on UADETRAC
+  Location: eva_storage/baselines/external/ssd/ssd_evaluation.ipynb
+

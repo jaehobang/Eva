@@ -47,10 +47,11 @@ class PreprocessingModule:
         :return:
         """
 
+        self.segmented_images = None
         self.logger.info("Starting Background Subtraction on given Video Dataset...")
 
         if load:
-            self.logger.log("Trying to load from saved file....")
+            self.logger.info("Trying to load from saved file....")
             self._loadSegmentedImages()
 
 
@@ -135,14 +136,13 @@ class PreprocessingModule:
             self.logger.info(f"Saved segmented images to {dir}")
 
 
-    def _loadSegmentedImages(self, images):
+    def _loadSegmentedImages(self):
         eva_dir = config.eva_dir
         dir = os.path.join(eva_dir, 'data', 'npy_files', 'segmented_images.npy')
         if os.path.exists(dir):
             self.logger.info(f"path {dir} found!")
             self.segmented_images = np.load(dir)
-            if self.segmented_images.shape != images.shape:
-                self.segmented_images = None
+            self.logger.info("Loading successful!")
 
         else:
             self.logger.error(f"path: {dir} does not exist...")

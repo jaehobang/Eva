@@ -38,6 +38,15 @@ class MultiboxLoss(nn.Module):
             mask = box_utils.hard_negative_mining(loss, labels, self.neg_pos_ratio)
 
         confidence = confidence[mask, :]
+        confidence_ = confidence.reshape(-1, num_classes)
+        labels_ = labels[mask]
+        ## let's check contents of labels_
+        for i in range(len(labels_)):
+            if labels_[i]  < 0 or labels_[i] >= num_classes:
+                print(f"index {i} has wrong label!!! value: {labels_[i]}")
+
+
+        ## i keep getting the error that num_classes (4) is out of bounds... need to see what value 4 is... i think it is a mess up from including backgrounds
         classification_loss = F.cross_entropy(confidence.reshape(-1, num_classes), labels[mask], size_average=False)
         pos_mask = labels > 0
         predicted_locations = predicted_locations[pos_mask, :].reshape(-1, 4)

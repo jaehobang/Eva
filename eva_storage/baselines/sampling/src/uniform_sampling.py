@@ -16,7 +16,7 @@ class UniformSampling:
 
 
     @staticmethod
-    def sample(arr, sample_rate):
+    def sample(arr, sample_rate=20):
         """
 
         :param arr:  np.ndarray / list to perform uniform sampling on

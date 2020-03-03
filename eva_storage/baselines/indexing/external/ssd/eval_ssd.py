@@ -1,19 +1,13 @@
 import torch
 from eva_storage.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd, create_vgg_ssd_predictor
-from eva_storage.external.ssd.vision.ssd.mobilenetv1_ssd import create_mobilenetv1_ssd, create_mobilenetv1_ssd_predictor
-from eva_storage.external.ssd.vision.ssd.mobilenetv1_ssd_lite import create_mobilenetv1_ssd_lite, create_mobilenetv1_ssd_lite_predictor
-from eva_storage.external.ssd.vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite, create_squeezenet_ssd_lite_predictor
 from eva_storage.external.ssd.vision.datasets.voc_dataset import VOCDataset
 from eva_storage.external.ssd.vision.datasets.open_images import OpenImagesDataset
-from eva_storage.external.ssd.vision.utils import box_utils, measurements
-from eva_storage.external.ssd.vision.utils.misc import str2bool, Timer
+from eva_storage.external.ssd.vision.utils import measurements
+from eva_storage.external.ssd.vision.utils.misc import str2bool
 import argparse
-import pathlib
 import numpy as np
 import logging
 import sys
-from eva_storage.external.ssd.vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite, create_mobilenetv2_ssd_lite_predictor
-from eva_storage.external.ssd.vision.utils import box_utils
 
 from eva_storage.external.ssd.vision.utils import box_utils
 
