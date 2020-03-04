@@ -1,23 +1,41 @@
+
+from __future__ import annotations
 import time
 from sklearn.cluster import AgglomerativeClustering
-
+from eva_storage.logger import Logger
+from abc import ABCMeta, ABC, abstractmethod
 
 # Assume you have compressed images: images_compressed
 # original_images -> images_compressed (output of the encoder network)
+
+
+
 
 class ClusterModule:
 
     def __init__(self):
         self.ac = None
+        self.logger = Logger()
 
     def run(self, image_compressed, fps=20):
-        print("Cluster module starting....")
+        """
+        :param image_compressed:
+        :param fps:
+        :return: sampled frames, corresponding cluster numbers for each instance
+        """
+        self.logger.info("Cluster module starting....")
         n_samples = len(image_compressed)
         self.ac = AgglomerativeClustering(n_clusters=n_samples // fps)
-        start_time = time.time()
+        start_time = time.perf_counter()
         self.ac.fit(image_compressed)
-        print("Time to fit ", n_samples, ": ", time.time() - start_time)
-        return self.ac.labels_
+        self.logger.info(f"Time to fit {n_samples}: {time.perf_counter() - start_time} (sec)")
+        method = FirstEncounterMethod()
+        self.logger.info(f"Sampling frames based on {str(method)} strategy")
+        rep_indices = method.run(self.ac.labels_)
+
+        return image_compressed[rep_indices], rep_indices, self.ac.labels_
+
+
 
     def plot_distribution(self):
         import matplotlib.pyplot as plt
@@ -25,6 +43,34 @@ class ClusterModule:
         axs.hist(self.ac.labels_, bins=max(self.ac.labels_) + 1)
         plt.xlabel("Cluster Numbers")
         plt.ylabel("Number of datapoints")
+
+
+
+
+class SamplingMethod(ABC):
+
+    @abstractmethod
+    def run(self, cluster_labels):
+        pass
+
+
+
+class FirstEncounterMethod(SamplingMethod):
+
+    def __str__(self):
+        return "First Encounter Method"
+
+    def run(self, cluster_labels):
+        label_set = set()
+        indices_list = []
+        for i, cluster_label in enumerate(cluster_labels):
+            if cluster_label not in label_set:
+                label_set.add(cluster_label)
+                indices_list.append(i)
+
+        return indices_list
+
+
 
 
 

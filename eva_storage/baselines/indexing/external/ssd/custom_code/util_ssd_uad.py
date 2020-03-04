@@ -3,6 +3,8 @@ import sys
 import os
 import numpy as np
 import torch
+from eva_storage.baselines.indexing.external.ssd.vision.utils import measurements
+from eva_storage.baselines.indexing.external.ssd.vision.utils import box_utils
 
 
 ##### UA-detrac loading functions ######
@@ -13,17 +15,17 @@ class UADataset_lite:
             root: the root of the VOC2007 or VOC2012 dataset, the directory contains the following sub-directories:
                 Annotations, ImageSets, JPEGImages, SegmentationClass, SegmentationObject.
         """
-        self.class_names = ['BACKGROUND', 'car', 'bus', 'others', 'van']
+        self.class_names = ['BACKGROUND', 'car', 'bus', 'others', 'van'] ## i think we need to take out background.... either that or class names have to be 5
         self.class_dict = {class_name: i for i, class_name in enumerate(self.class_names)}
         self.transform = transform
         self.target_transform = target_transform
 
 
-    def set_x(self, images):
+    def set_images(self, images):
         self.X_train = images
 
 
-    def set_y(self, labels):
+    def set_labels(self, labels):
         labels = self.convert_labels(labels)
         self.y_train = labels
 
@@ -37,7 +39,7 @@ class UADataset_lite:
 
     def get_image(self, index):
         image_id = index
-        image = self.X_tarin[image_id]
+        image = self.X_train[image_id]
         if self.transform:
             image, _ = self.transform(image)
         return image
@@ -46,7 +48,7 @@ class UADataset_lite:
         return self.X_train[index]
 
 
-    def set_y_boxes(self, boxes):
+    def set_boxes(self, boxes):
         boxes = self.convert_boxes(boxes)
         self.y_train_boxes = boxes
 
@@ -92,6 +94,7 @@ class UADataset_lite:
         labels = self.y_train[index]
         boxes = np.array(boxes, dtype=np.float32)
         labels = np.array(labels, dtype=np.int)
+
         ## image, boxes, labels
         if self.transform:
             image, boxes, labels = self.transform(image, boxes, labels)
@@ -102,11 +105,10 @@ class UADataset_lite:
         return image, boxes, labels
 
 
-
-
-
     def __len__(self):
         return len(self.X_train)
+
+
 
 
 class UADataset:
@@ -803,5 +805,408 @@ def corloc(ground_truth_list, proposed_list, filter=False, iou=0.5):
 
     return precision, recall
 
+
+##### Updated 3/3/2020 -- Filters the image input because the loaded data can contain None
+
+def filter_input(images_train, labels_train, boxes_train):
+    length = len(images_train)
+
+    ## first determine count of non None frame
+    count = 0
+    for i in range(length):
+        if labels_train[i] is not None:
+            count += 1
+
+    new_images_train = np.ndarray(shape = (count, images_train.shape[1], images_train.shape[2], images_train.shape[3]))
+    new_labels_train = []
+    new_boxes_train = []
+
+    index = 0
+    for i, elem in enumerate(labels_train):
+        if elem is not None:
+            new_images_train[index] = images_train[i]
+            index += 1
+            new_labels_train.append(elem)
+            new_boxes_train.append(boxes_train[i])
+
+    assert(len(new_images_train) == len(new_labels_train))
+    assert(len(new_images_train) == len(new_boxes_train))
+
+    return new_images_train, new_labels_train, new_boxes_train
+
+
+### Functions for evaluation
+
+def group_annotation_by_class(dataset):
+    true_case_stat = {}
+    all_gt_boxes = {}
+    all_difficult_cases = {}
+    for i in range(len(dataset)):
+        image_id, annotation = dataset.get_annotation(i)
+        gt_boxes, classes, is_difficult = annotation
+        gt_boxes = torch.from_numpy(gt_boxes)
+        for i, difficult in enumerate(is_difficult):
+            class_index = int(classes[i])
+            gt_box = gt_boxes[i]
+            if not difficult:
+                true_case_stat[class_index] = true_case_stat.get(class_index, 0) + 1
+
+            if class_index not in all_gt_boxes:
+                all_gt_boxes[class_index] = {}
+            if image_id not in all_gt_boxes[class_index]:
+                all_gt_boxes[class_index][image_id] = []
+            all_gt_boxes[class_index][image_id].append(gt_box)
+            if class_index not in all_difficult_cases:
+                all_difficult_cases[class_index] = {}
+            if image_id not in all_difficult_cases[class_index]:
+                all_difficult_cases[class_index][image_id] = []
+            all_difficult_cases[class_index][image_id].append(difficult)
+
+    for class_index in all_gt_boxes:
+        for image_id in all_gt_boxes[class_index]:
+            all_gt_boxes[class_index][image_id] = torch.stack(all_gt_boxes[class_index][image_id])
+    for class_index in all_difficult_cases:
+        for image_id in all_difficult_cases[class_index]:
+            all_gt_boxes[class_index][image_id] = torch.tensor(all_gt_boxes[class_index][image_id])
+    return true_case_stat, all_gt_boxes, all_difficult_cases
+
+
+
+
+def compute_average_precision_class_agnostic(num_true_casess, gt_boxess, difficult_casess, class_names, iou_threshold, use_2007_metric):
+    import os
+    eval_path = '/nethome/jbang36/eva/eva_storage/evaluation'
+
+    final_true_positive = np.array([])
+    final_false_positive = np.array([])
+
+
+    for class_index, class_name in enumerate(class_names):
+
+        if class_index == 0: continue #background
+
+        print(class_index, class_name)
+        prediction_file = os.path.join(eval_path, f"det_test_{class_name}.txt")
+        num_true_cases = num_true_casess[class_index]
+        gt_boxes = gt_boxess[class_index]
+        difficult_cases = difficult_casess[class_index]
+
+        ##### TODO: we can't just set false_positive[i] = 1, we have to do false_positive[i] += 1 because there can be multiple answers / mistakes in a given frame
+        ##### TODO: I don't think VOC2007 measure took care of this because there is only one object per image....
+        with open(prediction_file) as f:
+            image_ids = []
+            boxes = []
+            scores = []
+            for line in f:
+                t = line.rstrip().split(" ")
+                image_ids.append(t[0])
+                scores.append(float(t[1]))
+                box = torch.tensor([float(v) for v in t[2:]]).unsqueeze(0)
+                box -= 1.0  # convert to python format where indexes start from 0
+                boxes.append(box)
+            scores = np.array(scores)
+            sorted_indexes = np.argsort(-scores)
+            boxes = [boxes[i] for i in sorted_indexes]
+            image_ids = [image_ids[i] for i in sorted_indexes]
+            true_positive = np.zeros(len(image_ids))
+            false_positive = np.zeros(len(image_ids))
+            matched = set()
+
+            ### there are so many image ids that are not in gt_boxes.... this must be an error...
+            #print(image_ids) ## this will return image ids in form of a string
+            if type(image_ids[0]) == str:
+                print("converting image ids to int instead of str")
+                image_ids = list(map(int, image_ids))
+                assert(type(image_ids[0]) == int)
+
+
+            for i, image_id in enumerate(image_ids):
+
+                box = boxes[i]
+                if image_id not in gt_boxes:
+                    false_positive[i] = 1
+                    print(f"image_id {image_id} not in gt_boxes!!!! added {len(gt_boxes)} to false_positive array")
+                    continue
+
+                gt_box = gt_boxes[image_id]
+                ious = box_utils.iou_of(box, gt_box)
+
+                max_iou = torch.max(ious).item()
+                max_arg = torch.argmax(ious).item()
+                if max_iou > iou_threshold:
+                    if difficult_cases[image_id][max_arg] == 0:
+                        if (image_id, max_arg) not in matched:
+                            true_positive[i] = 1
+
+                            matched.add((image_id, max_arg))
+                        else:
+
+                            false_positive[i] = 1
+                else:
+                    false_positive[i] = 1
+        final_true_positive = np.concatenate((final_true_positive, true_positive), axis = 0)
+        final_false_positive = np.concatenate((final_false_positive, false_positive), axis = 0)
+
+        final_true_positive = final_true_positive.cumsum()
+        final_false_positive = final_false_positive.cumsum()
+        precision = final_true_positive / (final_true_positive + final_false_positive)
+
+        num_true = 0
+        for key in num_true_casess.keys():
+            num_true += num_true_casess[key]
+        recall = final_true_positive / (num_true)
+        """
+        true_positive = true_positive.cumsum()
+        false_positive = false_positive.cumsum()
+        precision = true_positive / (true_positive + false_positive)
+        recall = true_positive / num_true_cases
+        """
+
+
+        print("Printing stats for class...")
+        print("true_positive", true_positive)
+        print("false_positive", false_positive)
+        print("precision is", precision)
+        print("recall is", recall)
+        if use_2007_metric:
+            return measurements.compute_voc2007_average_precision(precision, recall)
+        else:
+            return measurements.compute_average_precision(precision, recall)
+
+
+
+def compute_average_precision_per_class_modified(num_true_cases, gt_boxes, difficult_cases,
+                                        prediction_file, iou_threshold, use_2007_metric):
+    """
+    This function is modified from compute_average_precision_per_class() by taking into account that multiple answers for each frame and multiple mistakes per each frame
+    is accounted for....
+    :param num_true_cases: number of true cases
+    :param gt_boxes: number of ground truth boxes
+    :param difficult_cases: whether it is a difficult case
+    :param prediction_file: saved prediction file
+    :param iou_threshold: iou_threshold needed to be considered a proposal box
+    :param use_2007_metric: whether to use voc 2007 metric
+    :return: average precision for a given class
+    """
+    with open(prediction_file) as f:
+        image_ids = []
+        boxes = []
+        scores = []
+        for line in f:
+            t = line.rstrip().split(" ")
+            image_ids.append(t[0])
+            scores.append(float(t[1]))
+            box = torch.tensor([float(v) for v in t[2:]]).unsqueeze(0)
+            box -= 1.0  # convert to python format where indexes start from 0
+            boxes.append(box)
+        scores = np.array(scores)
+        sorted_indexes = np.argsort(-scores)
+        boxes = [boxes[i] for i in sorted_indexes]
+        image_ids = [image_ids[i] for i in sorted_indexes]
+        true_positive = np.zeros(len(image_ids))
+        false_positive = np.zeros(len(image_ids))
+        matched = set()
+
+        ### there are so many image ids that are not in gt_boxes.... this must be an error...
+        #print(image_ids) ## this will return image ids in form of a string
+        if type(image_ids[0]) == str:
+            print("converting image ids to int instead of str")
+            image_ids = list(map(int, image_ids))
+            assert(type(image_ids[0]) == int)
+
+
+        for i, image_id in enumerate(image_ids):
+
+            box = boxes[i]
+            if image_id not in gt_boxes:
+                false_positive[i] += len(gt_boxes)
+                #false_positive[i] = 1
+                print("image_id", image_id, "not in gt_boxes!!!! skipping....")
+                continue
+
+            gt_box = gt_boxes[image_id]
+            ious = box_utils.iou_of(box, gt_box)
+
+            max_iou = torch.max(ious).item()
+            max_arg = torch.argmax(ious).item()
+            if max_iou > iou_threshold:
+                if difficult_cases[image_id][max_arg] == 0:
+                    if (image_id, max_arg) not in matched:
+                        true_positive[i] += 1
+                        #true_positive[i] = 1
+                        matched.add((image_id, max_arg))
+                    else:
+                        false_positive[i] += 1
+                        #false_positive[i] = 1
+            else:
+                #false_positive[i] = 1
+                false_positive[i] += 1
+
+    print("before cum sum")
+    print(len(true_positive))
+    print(len(false_positive))
+    print(true_positive)
+    print(false_positive)
+    print("---------------------")
+
+
+    true_positive = true_positive.cumsum()
+    false_positive = false_positive.cumsum()
+    precision = true_positive / (true_positive + false_positive)
+    recall = true_positive / num_true_cases
+
+    print("Printing stats for class...")
+    print("true_positive", true_positive)
+    print("false_positive", false_positive)
+    print("precision is", precision)
+    print("recall is", recall)
+    if use_2007_metric:
+        return measurements.compute_voc2007_average_precision(precision, recall)
+    else:
+        return measurements.compute_average_precision(precision, recall)
+
+
+
+def compute_average_precision_per_class_weighed(num_true_cases, gt_boxes, difficult_cases,
+                                        prediction_file, iou_threshold, use_2007_metric):
+    with open(prediction_file) as f:
+        image_ids = []
+        boxes = []
+        scores = []
+        for line in f:
+            t = line.rstrip().split(" ")
+            image_ids.append(t[0])
+            scores.append(float(t[1]))
+            box = torch.tensor([float(v) for v in t[2:]]).unsqueeze(0)
+            box -= 1.0  # convert to python format where indexes start from 0
+            boxes.append(box)
+        scores = np.array(scores)
+        sorted_indexes = np.argsort(-scores)
+        boxes = [boxes[i] for i in sorted_indexes]
+        image_ids = [image_ids[i] for i in sorted_indexes]
+        true_positive = np.zeros(len(image_ids))
+        false_positive = np.zeros(len(image_ids))
+        matched = set()
+
+        ### there are so many image ids that are not in gt_boxes.... this must be an error...
+        #print(image_ids) ## this will return image ids in form of a string
+        if type(image_ids[0]) == str:
+            print("converting image ids to int instead of str")
+            image_ids = list(map(int, image_ids))
+            assert(type(image_ids[0]) == int)
+
+
+        for i, image_id in enumerate(image_ids):
+
+            box = boxes[i]
+            if image_id not in gt_boxes:
+                false_positive[i] = 1
+                print("image_id", image_id, "not in gt_boxes!!!! skipping....")
+                continue
+
+            gt_box = gt_boxes[image_id]
+            ious = box_utils.iou_of(box, gt_box)
+
+            max_iou = torch.max(ious).item()
+            max_arg = torch.argmax(ious).item()
+            if max_iou > iou_threshold:
+                if difficult_cases[image_id][max_arg] == 0:
+                    if (image_id, max_arg) not in matched:
+                        true_positive[i] = 1
+                        matched.add((image_id, max_arg))
+                    else:
+                        false_positive[i] = 1
+            else:
+                false_positive[i] = 1
+
+
+    true_positive = true_positive.cumsum()
+    false_positive = false_positive.cumsum()
+    precision = true_positive / (true_positive + false_positive)
+    recall = true_positive / num_true_cases
+
+    print("Printing stats for class...")
+    print("true_positive", true_positive)
+    print("false_positive", false_positive)
+    print("precision is", precision)
+    print("recall is", recall)
+    if use_2007_metric:
+        return len(true_positive), measurements.compute_voc2007_average_precision(precision, recall)
+    else:
+        return len(true_positive), measurements.compute_average_precision(precision, recall)
+
+
+
+def compute_average_precision_per_class(num_true_cases, gt_boxes, difficult_cases,
+                                        prediction_file, iou_threshold, use_2007_metric):
+    with open(prediction_file) as f:
+        image_ids = []
+        boxes = []
+        scores = []
+        for line in f:
+            t = line.rstrip().split(" ")
+            image_ids.append(t[0])
+            scores.append(float(t[1]))
+            box = torch.tensor([float(v) for v in t[2:]]).unsqueeze(0)
+            box -= 1.0  # convert to python format where indexes start from 0
+            boxes.append(box)
+        scores = np.array(scores)
+        sorted_indexes = np.argsort(-scores)
+        boxes = [boxes[i] for i in sorted_indexes]
+        image_ids = [image_ids[i] for i in sorted_indexes]
+        true_positive = np.zeros(len(image_ids))
+        false_positive = np.zeros(len(image_ids))
+        matched = set()
+
+        ### there are so many image ids that are not in gt_boxes.... this must be an error...
+        #print(image_ids) ## this will return image ids in form of a string
+        if type(image_ids[0]) == str:
+            print("converting image ids to int instead of str")
+            image_ids = list(map(int, image_ids))
+            assert(type(image_ids[0]) == int)
+
+
+        for i, image_id in enumerate(image_ids):
+
+            box = boxes[i]
+            if image_id not in gt_boxes:
+                false_positive[i] = 1
+                print("image_id", image_id, "not in gt_boxes!!!! skipping....")
+                continue
+
+            gt_box = gt_boxes[image_id]
+            ious = box_utils.iou_of(box, gt_box)
+
+            max_iou = torch.max(ious).item()
+            max_arg = torch.argmax(ious).item()
+            if max_iou > iou_threshold:
+                if difficult_cases[image_id][max_arg] == 0:
+                    if (image_id, max_arg) not in matched:
+                        true_positive[i] = 1
+                        matched.add((image_id, max_arg))
+                    else:
+                        false_positive[i] = 1
+            else:
+                false_positive[i] = 1
+
+
+    true_positive = true_positive.cumsum()
+    false_positive = false_positive.cumsum()
+    precision = true_positive / (true_positive + false_positive)
+    recall = true_positive / num_true_cases
+
+
+
+    print("Printing stats for class...")
+    print("true_positive", true_positive)
+    print("false_positive", false_positive)
+
+
+    print("precision is", precision)
+    print("recall is", recall)
+    if use_2007_metric:
+        return measurements.compute_voc2007_average_precision(precision, recall)
+    else:
+        return measurements.compute_average_precision(precision, recall)
 
 

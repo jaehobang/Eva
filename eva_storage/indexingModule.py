@@ -14,11 +14,14 @@ import torch
 import torch.nn as nn
 import argparse
 
+
+import config
+
 from eva_storage.models.Autoencoder import Autoencoder
 from sklearn.neighbors import NearestNeighbors
 
 
-DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+#DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 parser = argparse.ArgumentParser(description='Define arguments for loader')
 parser.add_argument('--learning_rate', type = int, default=0.0001, help='Learning rate for UNet')
@@ -68,7 +71,7 @@ class IndexingModule:
 
         for i, data in enumerate(self.dataloader):
             img = data
-            img_cuda = img.to(DEVICE)
+            img_cuda = img.to(config.eval_device)
             compressed, output = self.model(img_cuda)
             patches_compressed[(i * batch_size):(i * batch_size) + batch_size, :] = compressed.view(compressed.size(0),
                                                                                                     -1).cpu().detach().numpy()
@@ -95,14 +98,14 @@ class IndexingModule:
         patch_flattened = self._flattenPatches(patches, patch_count_list)
 
         self.dataloader = torch.utils.data.DataLoader(patch_flattened, batch_size=args.batch_size, shuffle=False, num_workers=4)
-        self.model.to(DEVICE)
+        self.model.to(config.train_device)
         distance = nn.MSELoss()
         optimizer = torch.optim.Adam(self.model.parameters(), weight_decay=1e-5)
         print("Training the network for indexing...")
         for epoch in range(args.total_epochs):
             for data in self.dataloader:
                 img = data
-                img_cuda = img.to(DEVICE)
+                img_cuda = img.to(config.train_device)
                 # ===================forward=====================
                 compressed, output = self.model(img_cuda)
                 loss = distance(output, img_cuda)

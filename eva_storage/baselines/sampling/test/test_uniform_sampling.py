@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from eva_storage.temporal_filters.src.uniform_sampling import UniformSampling
+from eva_storage.baselines.sampling.src import UniformSampling
 
 
 class UniformSamplingTests(unittest.TestCase):

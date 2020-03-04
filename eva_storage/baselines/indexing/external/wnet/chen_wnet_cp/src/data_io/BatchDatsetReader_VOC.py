@@ -50,8 +50,7 @@ def create_image_lists(image_dir):
     return data
 
 
-"""
->>>>>>> d6ca907e41561e83e81ccd43d506778ba47520f3
+
 def read_data_record(data_dir, validation_len=500):
 
 
@@ -77,34 +76,6 @@ def read_data_record(data_dir, validation_len=500):
         data_records = pickle.load(f)
     return data_records
 
-"""        
-def read_data_record(data_dir, validation_len = 500):
-    
-    Initialize list of datapath in data_dir if has not been initialized.
-    
-    
-    pickle_filename = 'VOC_datalist.pickle'
-    pickle_filepath = os.path.join(data_dir, pickle_filename)
-    print("inside read_data_record")
-    print(data_dir)
-    print(pickle_filepath)
-    if not os.path.exists(pickle_filepath):
-        data = create_image_lists(data_dir)
-        # Parse data into training and validation
-        training_data = data[validation_len:]
-        validation_data = data[:validation_len]
-        result = {'training':training_data, 'validation':validation_data}
-        
-        print ('Pickling ...')
-        with open(pickle_filepath, 'wb') as f:
-            pickle.dump(result, f, pickle.HIGHEST_PROTOCOL)
-    else:
-        print ('Found pickle file!')
-
-    with open(pickle_filepath, 'rb') as f:
-        data_records = pickle.load(f)
-    return data_records
-"""
 
 
 def download_if_no_data(dir_path, url_name):
@@ -158,10 +129,7 @@ class BatchDatset:
     epochs_completed = 0
     
     def __init__(self, data_records, is_shuffle=False):
-        """
-        
-        """
-        
+   
         print("Initializing Batch Dataset Reader...")
         self.read_data_to_self(data_records)
         
@@ -205,3 +173,4 @@ class BatchDatset:
     def get_random_batch(self, batch_size):
         indexes = np.random.randint(0, len(self.images), size=[batch_size])
         return self.images[indexes], self.annotations[indexes]
+

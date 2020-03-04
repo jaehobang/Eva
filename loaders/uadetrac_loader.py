@@ -16,6 +16,7 @@ from loaders import TaskManager
 from loaders.abstract_loader import AbstractLoader
 import warnings
 import argparse
+import time
 
 from eva_storage.logger import Logger, LoggingLevel
 
@@ -139,7 +140,7 @@ class UADetracLoader(AbstractLoader):
 
         self.logger.debug(f"Number of directories: {len(mvi_directories)}")
         self.logger.debug(f"Directories are: {mvi_directories}")
-        self.logger.info(f"Number of files added: {len(file_names)}")
+        st = time.perf_counter()
 
         self.images = np.ndarray(shape=(
         len(file_names), self.image_height, self.image_width, self.image_channels),
@@ -155,6 +156,8 @@ class UADetracLoader(AbstractLoader):
         for i, length in enumerate(range(len(video_length_indices))):
             video_start_indices.append( video_length_indices[i] + video_start_indices[i] )
         self.video_start_indices = np.array(video_start_indices)
+
+        self.logger.info(f"Total time to load {len(file_names)} images: {time.perf_counter() - st} (sec)")
 
         return self.images
 
@@ -175,7 +178,7 @@ class UADetracLoader(AbstractLoader):
             self.labels = {'vehicle': vehicle_type_labels, 'speed': speed_labels,
                     'color': color_labels, 'intersection': intersection_labels}
 
-            return self.labels
+            return self.labels, self.boxes
         else:
             return None
 
@@ -212,8 +215,8 @@ class UADetracLoader(AbstractLoader):
         elif type(self.images) is np.ndarray:
             np.save(save_dir, self.images)
             np.save(save_dir_vi, np.array(self.video_start_indices))
-            self.logger.info("saved images to", save_dir)
-            self.logger.info("saved video indices to", save_dir_vi)
+            self.logger.info(f"saved images to {save_dir}")
+            self.logger.info(f"saved video indices to {save_dir_vi}")
         else:
             self.logger.error("Image array type is not np.....cannot save")
 
@@ -226,10 +229,10 @@ class UADetracLoader(AbstractLoader):
 
         elif type(self.labels) is dict:
             np.save(save_dir, self.labels, allow_pickle=True)
-            self.logger.info("saved labels to", save_dir)
+            self.logger.info(f"saved labels to {save_dir}")
 
         else:
-            self.logger.error(f"Expected labels type to be dict, got{type(self.labels)}")
+            self.logger.error(f"Expected labels type to be dict, got {type(self.labels)}")
 
 
 
@@ -240,7 +243,7 @@ class UADetracLoader(AbstractLoader):
 
         elif type(self.images) is np.ndarray:
             np.save(save_dir, self.boxes)
-            self.logger.info("saved boxes to", save_dir)
+            self.logger.info(f"saved boxes to {save_dir}")
 
         else:
             self.logger.error("Labels type is not np....cannot save")
@@ -293,6 +296,7 @@ class UADetracLoader(AbstractLoader):
         speed_labels = []
         color_labels = []
         intersection_labels = []
+        self.boxes = None
 
         width = self.image_width
         height = self.image_height
@@ -361,7 +365,7 @@ class UADetracLoader(AbstractLoader):
                         right = int((float(box.attrib['left']) + float(box.attrib['width'])) * width / original_width)
                         bottom = int((float(box.attrib['top']) + float(box.attrib['height'])) * height / original_height)
 
-                        boxes_per_frame.append((top, left, bottom, right))
+                        boxes_per_frame.append((left, top, right, bottom))
 
                     car_per_frame = []
                     speed_per_frame = []
@@ -403,20 +407,21 @@ class UADetracLoader(AbstractLoader):
                     else:
                         intersection_labels_file.append(intersection_per_frame)
 
-                ## UPDATED: 1/21/2020 -- annotations might not be available at the end
-                if len(car_labels_file) < self.video_start_indices[i + 1]:
+                ## UPDATED: 2/19/2020 -- video_start_indices -> define the indices that video starts
+                video_length = self.video_start_indices[i+1] - self.video_start_indices[i]
+                if len(car_labels_file) < video_length:
                     initial_car_labels_length = len(car_labels_file)
-                    car_labels_file.extend([None] * (self.video_start_indices[i + 1] - initial_car_labels_length))
-                    speed_labels_file.extend([None] * (self.video_start_indices[i + 1] - len(speed_labels_file)))
+                    car_labels_file.extend([None] * (video_length - initial_car_labels_length))
+                    speed_labels_file.extend([None] * (video_length - len(speed_labels_file)))
                     intersection_labels_file.extend(
-                        [None] * (self.video_start_indices[i + 1] - len(intersection_labels_file)))
-                    color_labels_file.extend([None] * (self.video_start_indices[i + 1] - len(color_labels_file)))
-                    boxes_labels_file.extend([None] * (self.video_start_indices[i + 1] - len(boxes_labels_file)))
+                        [None] * (video_length - len(intersection_labels_file)))
+                    color_labels_file.extend([None] * (video_length - len(color_labels_file)))
+                    boxes_labels_file.extend([None] * (video_length - len(boxes_labels_file)))
                     self.logger.debug(
-                        f"FILE: {file} has been modified to match length added {self.video_start_indices[i+1] - initial_car_labels_length} more columns")
+                        f"FILE: {file} has been modified to match length added {video_length - initial_car_labels_length} more columns")
                     self.logger.debug(f"-->> {len(car_labels_file)}")
-                    assert (len(car_labels_file) == self.video_start_indices[i + 1])
-                elif len(car_labels_file) > self.video_start_indices[i + 1]:
+                    assert (len(car_labels_file) == video_length)
+                elif len(car_labels_file) > video_length:
                     self.logger.error(
                         f"Length mismatch len(car_labels_file) {len(car_labels_file)}, self.video_start_indices[i] {self.video_start_indices[i+1]}")
 
@@ -425,17 +430,12 @@ class UADetracLoader(AbstractLoader):
                 self.logger.debug(len(car_labels_file))
                 self.logger.debug(self.video_start_indices[i + 1])
 
-                assert (len(car_labels_file) == self.video_start_indices[i + 1])
-                assert (len(speed_labels_file) == self.video_start_indices[i + 1])
-                assert (len(intersection_labels_file) == self.video_start_indices[i + 1])
-                assert (len(color_labels_file) == self.video_start_indices[i + 1])
-                assert (len(boxes_labels_file) == self.video_start_indices[i + 1])
 
                 car_labels.extend(car_labels_file)
                 speed_labels.extend(speed_labels_file)
                 intersection_labels.extend(intersection_labels_file)
                 color_labels.extend(color_labels_file)
-                boxes_dataset.append(boxes_labels_file)
+                boxes_dataset.extend(boxes_labels_file)
 
         self.boxes = boxes_dataset
 
