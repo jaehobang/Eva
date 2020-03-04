@@ -25,7 +25,7 @@ parser.add_argument("--use_cuda", type=str2bool, default=True)
 parser.add_argument("--use_2007_metric", type=str2bool, default=True)
 parser.add_argument("--nms_method", type=str, default="hard")
 parser.add_argument("--iou_threshold", type=float, default=0.5, help="The threshold of Intersection over Union.")
-parser.add_argument("--eval_dir", default="eval_results", type=str, help="The directory to store evaluation results.")
+parser.add_argument("--eval_dir", default="eval_results", type=str, help="The directory to store custom_code results.")
 parser.add_argument('--mb2_width_mult', default=1.0, type=float, help='Width Multiplifier for MobilenetV2')
 args = parser.parse_args()
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
@@ -69,7 +69,7 @@ def group_annotation_by_class(dataset):
 
 def compute_average_precision_class_agnostic(num_true_casess, gt_boxess, difficult_casess, class_names, iou_threshold, use_2007_metric):
     import os
-    eval_path = '/nethome/jbang36/eva/eva_storage/evaluation'
+    eval_path = '/nethome/jbang36/eva/eva_storage/custom_code'
 
     final_true_positive = np.array([])
     final_false_positive = np.array([])
@@ -389,17 +389,13 @@ def compute_average_precision_per_class(num_true_cases, gt_boxes, difficult_case
     precision = true_positive / (true_positive + false_positive)
     recall = true_positive / num_true_cases
 
-<<<<<<< HEAD
-    print("Printing stats for class...")
-    print("true_positive", true_positive)
-    print("false_positive", false_positive)
-=======
+
 
     print("Printing stats for class...")
     print("true_positive", true_positive)
     print("false_positive", false_positive)
 
->>>>>>> d6ca907e41561e83e81ccd43d506778ba47520f3
+
     print("precision is", precision)
     print("recall is", recall)
     if use_2007_metric:
@@ -422,18 +418,7 @@ if __name__ == '__main__':
     true_case_stat, all_gb_boxes, all_difficult_cases = group_annotation_by_class(dataset)
     if args.net == 'vgg16-ssd':
         net = create_vgg_ssd(len(class_names), is_test=True)
-    elif args.net == 'mb1-ssd':
-        net = create_mobilenetv1_ssd(len(class_names), is_test=True)
-    elif args.net == 'mb1-ssd-lite':
-        net = create_mobilenetv1_ssd_lite(len(class_names), is_test=True)
-    elif args.net == 'sq-ssd-lite':
-        net = create_squeezenet_ssd_lite(len(class_names), is_test=True)
-    elif args.net == 'mb2-ssd-lite':
-        net = create_mobilenetv2_ssd_lite(len(class_names), width_mult=args.mb2_width_mult, is_test=True)
-    else:
-        logging.fatal("The net type is wrong. It should be one of vgg16-ssd, mb1-ssd and mb1-ssd-lite.")
-        parser.print_help(sys.stderr)
-        sys.exit(1)  
+
 
     timer.start("Load Model")
     net.load(args.trained_model)
@@ -441,18 +426,7 @@ if __name__ == '__main__':
     print(f'It took {timer.end("Load Model")} seconds to load the model.')
     if args.net == 'vgg16-ssd':
         predictor = create_vgg_ssd_predictor(net, nms_method=args.nms_method, device=DEVICE)
-    elif args.net == 'mb1-ssd':
-        predictor = create_mobilenetv1_ssd_predictor(net, nms_method=args.nms_method, device=DEVICE)
-    elif args.net == 'mb1-ssd-lite':
-        predictor = create_mobilenetv1_ssd_lite_predictor(net, nms_method=args.nms_method, device=DEVICE)
-    elif args.net == 'sq-ssd-lite':
-        predictor = create_squeezenet_ssd_lite_predictor(net, nms_method=args.nms_method, device=DEVICE)
-    elif args.net == 'mb2-ssd-lite':
-        predictor = create_mobilenetv2_ssd_lite_predictor(net, nms_method=args.nms_method, device=DEVICE)
-    else:
-        logging.fatal("The net type is wrong. It should be one of vgg16-ssd, mb1-ssd and mb1-ssd-lite.")
-        parser.print_help(sys.stderr)
-        sys.exit(1)
+
 
     results = []
     for i in range(len(dataset)):

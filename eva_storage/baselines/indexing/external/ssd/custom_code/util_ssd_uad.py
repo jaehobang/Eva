@@ -835,7 +835,7 @@ def filter_input(images_train, labels_train, boxes_train):
     return new_images_train, new_labels_train, new_boxes_train
 
 
-### Functions for evaluation
+### Functions for custom_code
 
 def group_annotation_by_class(dataset):
     true_case_stat = {}
@@ -875,7 +875,7 @@ def group_annotation_by_class(dataset):
 
 def compute_average_precision_class_agnostic(num_true_casess, gt_boxess, difficult_casess, class_names, iou_threshold, use_2007_metric):
     import os
-    eval_path = '/nethome/jbang36/eva/eva_storage/evaluation'
+    eval_path = '/nethome/jbang36/eva_jaeho/eva_storage/baselines/indexing/external/ssd/custom_code/evaluation'
 
     final_true_positive = np.array([])
     final_false_positive = np.array([])

@@ -5,30 +5,25 @@ sys.path.append(home_dir)
 
 ## Need to load the modules
 from loaders.uadetrac_loader import UADetracLoader
-from eva_storage.logger import Logger, LoggingLevel
+from eva_storage.logger import Logger
 
 import os
 import itertools
 import time
 import torch
-from torch.utils.data import DataLoader, ConcatDataset
-from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
+from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import MultiStepLR
 
-from eva_storage.baselines.indexing.external.ssd.vision.utils.misc import str2bool, Timer, freeze_net_layers, \
-    store_labels
+from eva_storage.baselines.indexing.external.ssd.vision.utils.misc import freeze_net_layers
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.ssd import MatchPrior
-from eva_storage.baselines.indexing.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd
 from eva_storage.baselines.indexing.external.ssd.vision.nn.multibox_loss import MultiboxLoss
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.config import vgg_ssd_config
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd, create_vgg_ssd_predictor
 
 
-import eva_storage.baselines.indexing.external.ssd.util_ssd_uad as ssd_utils_custom
+import eva_storage.baselines.indexing.external.ssd.custom_code.util_ssd_uad as ssd_utils_custom
 import eva_storage.baselines.indexing.external.ssd.vision.utils as ssd_utils_original
-
-
-import numpy as np
 
 import config
 
@@ -109,16 +104,15 @@ def evaluate_naive(test_loader, logger):
 
 
     acc = 1.0 * tp_all / boxes_all
-    logger.info(f"Naive evaluation accuracy gives {acc}")
+    logger.info(f"Naive custom_code accuracy gives {acc}")
     return acc
 
 
-def evaluate(test_dataset, logger):
+def generate_predictions(test_dataset, logger):
     ## looking at the images, I don't think this is a good measure
     ## because it creates multiple boxes for each object...
     ## so we need to figure out a way to eliminate recurring boxes
-    # let's try evaluation method that is already implemented from eval_ssd.py
-
+    # let's try custom_code method that is already implemented from eval_ssd.py
 
     predictor = create_vgg_ssd_predictor(net, nms_method="hard", device=DEVICE)
     results = []
@@ -126,7 +120,7 @@ def evaluate(test_dataset, logger):
 
     for i in range(len(test_dataset)):
         image = test_dataset.get_image(i)
-        boxes, labels, probs = predictor.predict(image)
+        boxes, labels, probs = predictor.predict(image) ## might have to change this to .predict_modified(image)
         indexes = torch.ones(labels.size(0), 1, dtype=torch.float32) * i
         results.append(torch.cat([
             indexes.reshape(-1, 1),
@@ -137,10 +131,10 @@ def evaluate(test_dataset, logger):
 
     results = torch.cat(results)
 
-    logger.info(f"Finished evaluating {len(test_dataset)} images in {time.perf_counter - st} (sec)")
+    logger.info(f"Finished evaluating {len(test_dataset)} images in {time.perf_counter() - st} (sec)")
 
     class_names = ['car', 'bus', 'others', 'van']
-    eval_path = ''
+    eval_path = '/nethome/jbang36/eva_jaeho/eva_storage/baselines/indexing/external/ssd/custom_code/evaluation'
 
     for class_index, class_name in enumerate(class_names):
         if class_index == 0: continue  # ignore background
@@ -154,35 +148,20 @@ def evaluate(test_dataset, logger):
                     image_id + " " + " ".join([str(v) for v in prob_box]),
                     file=f
                 )
+        logger.info(f"Finished saving {class_name} results to {prediction_path}")
 
 
-    """
-    ## TODO: see if this needs to be taken out
-    for class_index, class_name in enumerate(class_names):
-        if class_index == 0: continue  # ignore background
-        sub = results[results[:, 1] == class_index, :]
-        for i in range(sub.size(0)):
-            prob_box = sub[i, 2:].numpy()
-            logger.debug(sub[i, 2:])
-            logger.debug(int(sub[i, 0]))
-            # image_id = dataset.ids[int(sub[i, 0])]
-            image_id = "0"
-            string = image_id + " " + " ".join([str(v) for v in prob_box])
-            logger.debug(string)
-            break
-    """
 
+
+def compute_statistics(test_dataset, logger):
     aps = []
-
-    logger.info("\n\nAverage Precision Per-class:")
+    class_names = ['car', 'bus', 'others', 'van']
 
     true_case_stat, all_gb_boxes, all_difficult_cases = ssd_utils_custom.group_annotation_by_class(test_dataset)
-
+    iou_threshold = 0.5
 
     for class_index, class_name in enumerate(class_names):
-        iou_threshold = 0.5
         use_2007_metric = True
-        ###TODO: need to fix this code up!!
 
         ap = ssd_utils_custom.compute_average_precision_per_class(
             true_case_stat[class_index],
@@ -195,10 +174,36 @@ def evaluate(test_dataset, logger):
         aps.append(ap)
 
     logger.info(f"\nAverage Precision Across All Classes:{sum(aps)/len(aps)}")
+    logger.info(f"Used iou threshold of {iou_threshold}")
+
+    return sum(aps) / len(aps)
+
+
+def compute_statistics_agnostic(test_dataset, logger):
+    aps = []
+    class_names = ['car', 'bus', 'others', 'van']
+
+    true_case_stat, all_gb_boxes, all_difficult_cases = ssd_utils_custom.group_annotation_by_class(test_dataset)
+    iou_threshold = 0.5
+
+    use_2007_metric = True
+    ap = ssd_utils_custom.compute_average_precision_class_agnostic(true_case_stat, all_gb_boxes,
+                                                                   all_difficult_cases, class_names,
+                                                                   iou_threshold, use_2007_metric)
 
 
 
-    return results
+    logger.info(f"\nAverage Precision Class Agnostic Method: {sum(aps)/len(aps)}")
+    logger.info(f"Used iou threshold of {iou_threshold}")
+
+    return sum(aps) / len(aps)
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     loader = UADetracLoader()
@@ -206,7 +211,7 @@ if __name__ == "__main__":
     home_dir = '/home/jbang36/eva_jaeho'
 
     images_test = loader.load_images(dir = os.path.join(home_dir, 'data', 'ua_detrac', '5_images'))
-    boxes_test, labels_test = loader.load_labels(dir = os.path.join(home_dir, 'data', 'ua_detrac', '5_xml'))
+    labels_test, boxes_test = loader.load_labels(dir = os.path.join(home_dir, 'data', 'ua_detrac', '5_xml'))
     labels_test = labels_test['vehicle']
 
     ### we need to take out frames that don't have labels / boxes
@@ -287,14 +292,15 @@ if __name__ == "__main__":
     dataset_test.set_labels(labels_test)
     dataset_test.set_boxes(boxes_test)
 
-    test_loader = DataLoader(dataset_test, batch_size, num_workers=4, shuffle=True)
+    #test_loader = DataLoader(dataset_test, batch_size, num_workers=4, shuffle=True)
 
     logger.info("Finished creating data loader for model")
 
-    ## do code evaluation...
+    ## do code custom_code...
 
-    evaluate_naive(test_loader, logger)
-    evaluate(test_loader, logger)
+    #evaluate_naive(test_loader, logger)
+    generate_predictions(dataset_test, logger)
+    compute_statistics(dataset_test, logger)
 
 
 

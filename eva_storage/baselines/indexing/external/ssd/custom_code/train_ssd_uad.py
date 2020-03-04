@@ -5,24 +5,22 @@ sys.path.append(home_dir)
 
 ## Need to load the modules
 from loaders.uadetrac_loader import UADetracLoader
-from eva_storage.logger import Logger, LoggingLevel
+from eva_storage.logger import Logger
 
 import os
 import itertools
 import time
 import torch
-from torch.utils.data import DataLoader, ConcatDataset
-from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
+from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import MultiStepLR
 
-from eva_storage.baselines.indexing.external.ssd.vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
+from eva_storage.baselines.indexing.external.ssd.vision.utils.misc import freeze_net_layers
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.ssd import MatchPrior
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd
 from eva_storage.baselines.indexing.external.ssd.vision.nn.multibox_loss import MultiboxLoss
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.config import vgg_ssd_config
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
-from eva_storage.baselines.indexing.external.ssd.util_ssd_uad import UADataset_lite, filter_input
-
-import numpy as np
+from eva_storage.baselines.indexing.external.ssd.custom_code.util_ssd_uad import UADataset_lite, filter_input
 
 import config
 DEVICE = config.train_device
