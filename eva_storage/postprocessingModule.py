@@ -199,7 +199,7 @@ class PostprocessingModule:
         """
 
         :param postprocessed_images: shape = [n_samples, height, width, channels]
-        :return: list of boxes in evaluation format
+        :return: list of boxes in custom_code format
         """
         self.unfiltered_boxes = []
         self.filtered_boxes = []

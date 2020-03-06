@@ -22,14 +22,16 @@ class MultiboxLoss(nn.Module):
         self.priors = priors
         self.priors.to(device)
 
-    def forward(self, confidence, predicted_locations, labels, gt_locations):
+    def forward(self, confidence, predicted_boxes, labels, gt_boxes):
         """Compute classification loss and smooth l1 loss.
+            Note both gt_locations and predicted_boxes are not normalized
+
 
         Args:
             confidence (batch_size, num_priors, num_classes): class predictions.
-            predicted_locations (batch_size, num_priors, 4): predicted locations.
+            predicted_boxes (batch_size, num_priors, 4): predicted box coordinates.
             labels (batch_size, num_priors): real labels of all the priors.
-            gt_locations (batch_size, num_priors, 4): real boxes corresponding all the priors.
+            gt_boxes (batch_size, num_priors, 4): real boxes corresponding all the priors.
         """
         num_classes = confidence.size(2)
         with torch.no_grad():
@@ -38,7 +40,6 @@ class MultiboxLoss(nn.Module):
             mask = box_utils.hard_negative_mining(loss, labels, self.neg_pos_ratio)
 
         confidence = confidence[mask, :]
-        confidence_ = confidence.reshape(-1, num_classes)
         labels_ = labels[mask]
         ## let's check contents of labels_
         for i in range(len(labels_)):
@@ -46,11 +47,10 @@ class MultiboxLoss(nn.Module):
                 print(f"index {i} has wrong label!!! value: {labels_[i]}")
 
 
-        ## i keep getting the error that num_classes (4) is out of bounds... need to see what value 4 is... i think it is a mess up from including backgrounds
         classification_loss = F.cross_entropy(confidence.reshape(-1, num_classes), labels[mask], size_average=False)
         pos_mask = labels > 0
-        predicted_locations = predicted_locations[pos_mask, :].reshape(-1, 4)
-        gt_locations = gt_locations[pos_mask, :].reshape(-1, 4)
-        smooth_l1_loss = F.smooth_l1_loss(predicted_locations, gt_locations, size_average=False)
-        num_pos = gt_locations.size(0)
+        predicted_locations = predicted_boxes[pos_mask, :].reshape(-1, 4)
+        gt_boxes = gt_boxes[pos_mask, :].reshape(-1, 4)
+        smooth_l1_loss = F.smooth_l1_loss(predicted_locations, gt_boxes, size_average=False)
+        num_pos = gt_boxes.size(0)
         return smooth_l1_loss/num_pos, classification_loss/num_pos

@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import MultiStepLR
 
 from eva_storage.baselines.indexing.external.ssd.vision.utils.misc import freeze_net_layers
-from eva_storage.baselines.indexing.external.ssd.vision.ssd.ssd import MatchPrior
+from eva_storage.baselines.indexing.external.ssd.vision.ssd.ssd import MatchPriorModified
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd
 from eva_storage.baselines.indexing.external.ssd.vision.nn.multibox_loss import MultiboxLoss
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.config import vgg_ssd_config
@@ -64,6 +64,30 @@ def train(loader, net, criterion, optimizer, device, logging, debug_steps=100, e
             running_classification_loss = 0.0
 
 
+def normalize_boxes(all_boxes, image_width, image_height):
+    """
+    We normalize the box parameters -- we also have to convert to center coordinate format, but this the network will do for us
+    :param all_boxes:
+    :param image_width:
+    :param image_height:
+    :return:
+    """
+    new_boxes = []
+    for boxes_per_frame in all_boxes:
+        new_boxes_per_frame = []
+        for i, box in enumerate(boxes_per_frame):
+            left, top, right, bottom = box
+            new_boxes_per_frame.append((left / image_width, top / image_height, right / image_width, bottom / image_height))
+        new_boxes.append(new_boxes_per_frame)
+
+    assert(len(new_boxes) == len(all_boxes))
+    for i, boxes_per_frame in enumerate(all_boxes):
+        assert(len(boxes_per_frame) == len(new_boxes[i]))
+
+
+
+    return new_boxes
+
 
 
 
@@ -78,6 +102,11 @@ if __name__ == "__main__":
     ### we need to take out frames that don't have labels / boxes
     labels_train = labels_train['vehicle']
     images_train, labels_train, boxes_train = filter_input(images_train, labels_train, boxes_train)
+    image_width, image_height = images_train.shape[1], images_train.shape[2]
+    boxes_train = normalize_boxes(boxes_train, image_width, image_height)
+
+    ## we need to normalize the boxes
+
 
 
     logger.info("Finished loading the UADetrac Dataset")
@@ -118,7 +147,9 @@ if __name__ == "__main__":
 
     train_transform = TrainAugmentation(config.image_size, config.image_mean,
                                         config.image_std)
-    target_transform = MatchPrior(config.priors, config.center_variance,
+
+    ## Very important, we train on the boxes instead of the locations because locations -> boxes is near impossible
+    target_transform = MatchPriorModified(config.priors, config.center_variance,
                                   config.size_variance, 0.5)
 
     test_transform = TestTransform(config.image_size, config.image_mean,
@@ -214,8 +245,8 @@ if __name__ == "__main__":
                 labels = labels.to(DEVICE)
                 num += 1
                 with torch.no_grad():
-                    confidence, locations = net(images)
-                    regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)
+                    confidence, proposed_boxes = net(images)
+                    regression_loss, classification_loss = criterion(confidence, proposed_boxes, labels, boxes)
                     loss = regression_loss + classification_loss
                 running_loss += loss.item()
                 running_regression_loss += regression_loss.item()

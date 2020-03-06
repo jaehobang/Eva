@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from eva_storage.baselines.indexing.external.ssd.vision.utils import measurements
 from eva_storage.baselines.indexing.external.ssd.vision.utils import box_utils
+from eva_storage.logger import Logger
 
 
 ##### UA-detrac loading functions ######
@@ -19,10 +20,15 @@ class UADataset_lite:
         self.class_dict = {class_name: i for i, class_name in enumerate(self.class_names)}
         self.transform = transform
         self.target_transform = target_transform
+        self.image_width = -1
+        self.image_height = -1
+        self.logger = Logger()
 
 
     def set_images(self, images):
         self.X_train = images
+        self.image_width = self.X_train.shape[1]
+        self.image_height = self.X_train.shape[2]
 
 
     def set_labels(self, labels):
@@ -49,8 +55,10 @@ class UADataset_lite:
 
 
     def set_boxes(self, boxes):
-        boxes = self.convert_boxes(boxes)
+        ## let's normalize the boxes...so that they are optimal for training
         self.y_train_boxes = boxes
+
+
 
 
     def convert_labels(self, labels):
@@ -70,23 +78,17 @@ class UADataset_lite:
         assert (len(new_labels) == len(labels))
         return new_labels
 
-    def convert_boxes(self, boxes_dataset):
-        new_boxes = []
-        total_none_count = 0
-        for frame in boxes_dataset:
-            new_frame = []
-            if frame is None:
-                new_boxes.append(None)
-                total_none_count += 1
-            else:
-                for box in frame:
-                    top, left, bottom, right = box
-                    new_frame.append([left, top, right, bottom])
-                new_boxes.append(new_frame)
-        assert (len(new_boxes) == len(boxes_dataset))
-        print(total_none_count)
 
-        return new_boxes
+    def normalize_boxes(self, boxes):
+        for i, box in enumerate(boxes):
+            left, top, right, bottom = box
+            boxes[i][0] = left / self.image_width
+            boxes[i][1] = top / self.image_height
+            boxes[i][2] = right / self.image_width
+            boxes[i][3] = bottom / self.image_height
+
+        return boxes
+
 
     def __getitem__(self, index):
         image = self.X_train[index]
@@ -101,6 +103,8 @@ class UADataset_lite:
 
         if self.target_transform:
             boxes, labels = self.target_transform(boxes, labels)
+
+        #boxes = self.normalize_boxes(boxes)
 
         return image, boxes, labels
 
@@ -128,7 +132,7 @@ class UADataset:
         anno_dir = os.path.join(self.root, 'data', 'ua_detrac', 'small-annotations')
         boxes_dataset = get_boxes(anno_dir, width=300, height=300)
         print("finished loading the datset")
-        boxes_dataset = self.convert_boxes(boxes_dataset)
+        #boxes_dataset = self.convert_boxes(boxes_dataset)
         print("finished converting the boxes")
         y_train = Y_train_dict['vehicle_type']
         y_test = Y_test_dict['vehicle_type']
@@ -844,6 +848,7 @@ def group_annotation_by_class(dataset):
     for i in range(len(dataset)):
         image_id, annotation = dataset.get_annotation(i)
         gt_boxes, classes, is_difficult = annotation
+
         gt_boxes = torch.from_numpy(gt_boxes)
         for i, difficult in enumerate(is_difficult):
             class_index = int(classes[i])
@@ -978,7 +983,8 @@ def compute_average_precision_class_agnostic(num_true_casess, gt_boxess, difficu
 def compute_average_precision_per_class_modified(num_true_cases, gt_boxes, difficult_cases,
                                         prediction_file, iou_threshold, use_2007_metric):
     """
-    This function is modified from compute_average_precision_per_class() by taking into account that multiple answers for each frame and multiple mistakes per each frame
+    This function is modified from compute_average_precision_per_class()
+    by taking into account that multiple answers for each frame and multiple mistakes per each frame
     is accounted for....
     :param num_true_cases: number of true cases
     :param gt_boxes: number of ground truth boxes
@@ -1014,17 +1020,20 @@ def compute_average_precision_per_class_modified(num_true_cases, gt_boxes, diffi
             image_ids = list(map(int, image_ids))
             assert(type(image_ids[0]) == int)
 
-
+        print(f"Evaluating a total of {len(images_ids)}")
         for i, image_id in enumerate(image_ids):
+
 
             box = boxes[i]
             if image_id not in gt_boxes:
                 false_positive[i] += len(gt_boxes)
-                #false_positive[i] = 1
-                print("image_id", image_id, "not in gt_boxes!!!! skipping....")
                 continue
 
             gt_box = gt_boxes[image_id]
+            ## need to convert box to proper format because it has negative numbers and everything
+            ## not even sure if it is in left, top, right, bottom format
+
+
             ious = box_utils.iou_of(box, gt_box)
 
             max_iou = torch.max(ious).item()
@@ -1033,13 +1042,11 @@ def compute_average_precision_per_class_modified(num_true_cases, gt_boxes, diffi
                 if difficult_cases[image_id][max_arg] == 0:
                     if (image_id, max_arg) not in matched:
                         true_positive[i] += 1
-                        #true_positive[i] = 1
                         matched.add((image_id, max_arg))
                     else:
                         false_positive[i] += 1
-                        #false_positive[i] = 1
+
             else:
-                #false_positive[i] = 1
                 false_positive[i] += 1
 
     print("before cum sum")

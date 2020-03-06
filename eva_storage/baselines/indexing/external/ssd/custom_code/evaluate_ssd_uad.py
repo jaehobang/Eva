@@ -138,12 +138,12 @@ def generate_predictions(test_dataset, logger):
 
     for class_index, class_name in enumerate(class_names):
         if class_index == 0: continue  # ignore background
-        prediction_path = eval_path / f"det_test_{class_name}.txt"
+        prediction_path = os.path.join(eval_path,  f"det_test_{class_name}.txt")
         with open(prediction_path, "w") as f:
             sub = results[results[:, 1] == class_index, :]
             for i in range(sub.size(0)):
                 prob_box = sub[i, 2:].numpy()
-                image_id = test_dataset.ids[int(sub[i, 0])]
+                image_id = str(int(sub[i,0]))
                 print(
                     image_id + " " + " ".join([str(v) for v in prob_box]),
                     file=f
@@ -208,6 +208,8 @@ def compute_statistics_agnostic(test_dataset, logger):
 if __name__ == "__main__":
     loader = UADetracLoader()
     logger = Logger()
+    logger.info("Starting evaluation........")
+
     home_dir = '/home/jbang36/eva_jaeho'
 
     images_test = loader.load_images(dir = os.path.join(home_dir, 'data', 'ua_detrac', '5_images'))
