@@ -27,11 +27,89 @@ class Predictor:
         self.timer = Timer()
 
 
+    def predict4evaluation(self, image, top_k = -1, prob_threshold = None):
+        """
+        This function was written 3/11 to adapt to the modifications in the network
+        It will be used for evaluation purposes
+        Function that is used with evaluate_ssd
+        The boxes that are generated should be in a center format....
+        We also have to make sure the output is not multiplied by size.. because test_transform makes box coordinates percentage
+
+        :param image:
+        :param top_k:
+        :param prob_threshold:
+        :return:
+        """
+        cpu_device = torch.device("cpu")
+        height, width, _ = image.shape
+        image = self.transform(image)
+        images = image.unsqueeze(0)
+        images = images.to(self.device)
+        with torch.no_grad():
+            self.timer.start()
+            scores, boxes = self.net.forward(images)
+            print("Inference time: ", self.timer.end())
+        boxes = boxes[0]
+        scores = scores[0]
+        if not prob_threshold:
+            prob_threshold = self.filter_threshold
+        # this version of nms is slower on GPU, so we move data to CPU.
+        boxes = boxes.to(cpu_device)
+        scores = scores.to(cpu_device)
+        picked_box_probs = []
+        picked_labels = []
+        for class_index in range(0, scores.size(1)):
+            probs = scores[:, class_index]
+            mask = probs > prob_threshold
+            probs = probs[mask]
+            if probs.size(0) == 0:
+                continue
+            subset_boxes = boxes[mask, :]
+            box_probs = torch.cat([subset_boxes, probs.reshape(-1, 1)], dim=1)
+            box_probs = box_utils.nms(box_probs, self.nms_method,
+                                      score_threshold=prob_threshold,
+                                      iou_threshold=self.iou_threshold,
+                                      sigma=self.sigma,
+                                      top_k=top_k,
+                                      candidate_size=self.candidate_size)
+            ## convert generated box probabilities to corner coordinates from center coordinates
+            ## center coordinates will be the result from the network
+            print(f"printing box probs: {box_probs}")
+            box_probs_tmp = box_utils.center_form_to_corner_form(box_probs[:,:4])
+            print(box_probs_tmp.shape)
+            print(box_probs[:,4].shape)
+            box_probs = torch.cat([box_probs_tmp, box_probs[:,4].reshape(-1, 1)], dim = 1)
+
+
+            picked_box_probs.append(box_probs)
+            picked_labels.extend([class_index] * box_probs.size(0))
+        if not picked_box_probs:
+            return torch.tensor([]), torch.tensor([]), torch.tensor([])
+        picked_box_probs = torch.cat(picked_box_probs)
+
+        ##new_picked_boxes_probs = box_utils.center_form_to_corner_form(picked_box_probs[:, :4])
+
+
+        ## first of all, in order for the lines below to work, the numbers have to fall between 0 and 1.
+        #  But, from what I am seeing, this is not the case..............
+        """
+        TODO: The lines below are modified but need to be made sure that it makes sense
+        picked_box_probs[:, 0] *= width
+        picked_box_probs[:, 1] *= height
+        picked_box_probs[:, 2] *= width
+        picked_box_probs[:, 3] *= height
+        """
+        return picked_box_probs[:, :4], torch.tensor(picked_labels), picked_box_probs[:, 4]
+
+
+
 
     def predict_modified(self, image, top_k = -1, prob_threshold = None):
         """
         Function that is used with evaluate_ssd
         The boxes that are generated should be in a center format....
+        We also have to make sure the output is not multiplied by size.. because test_transform makes box coordinates percentage
+
         :param image:
         :param top_k:
         :param prob_threshold:
@@ -74,6 +152,9 @@ class Predictor:
         if not picked_box_probs:
             return torch.tensor([]), torch.tensor([]), torch.tensor([])
         picked_box_probs = torch.cat(picked_box_probs)
+
+        ##new_picked_boxes_probs = box_utils.center_form_to_corner_form(picked_box_probs[:, :4])
+
 
         ## first of all, in order for the lines below to work, the numbers have to fall between 0 and 1.
         #  But, from what I am seeing, this is not the case..............
