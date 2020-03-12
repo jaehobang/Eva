@@ -1,5 +1,5 @@
 """
-This file will contain all the evaluation functions
+This file will contain all the custom_code functions
 """
 
 from eva_storage.logger import LoggingLevel, Logger

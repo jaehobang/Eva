@@ -46,7 +46,7 @@ if __name__ == "__main__":
     image_cluster_labels = cm.run(unet_compressed_images)
 
     rep_images, rep_labels = get_rep_frames(images, labels['vehicle'], image_cluster_labels)
-    ## TODO: Chose the representative frames... now need to do evaluation with filters
+    ## TODO: Chose the representative frames... now need to do custom_code with filters
 
 
 
