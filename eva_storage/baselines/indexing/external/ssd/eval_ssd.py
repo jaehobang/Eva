@@ -1,15 +1,16 @@
 import torch
-from eva_storage.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd, create_vgg_ssd_predictor
-from eva_storage.external.ssd.vision.datasets.voc_dataset import VOCDataset
-from eva_storage.external.ssd.vision.datasets.open_images import OpenImagesDataset
-from eva_storage.external.ssd.vision.utils import measurements
-from eva_storage.external.ssd.vision.utils.misc import str2bool
+import os
+from eva_storage.baselines.indexing.external.ssd.vision.ssd.vgg_ssd import create_vgg_ssd, create_vgg_ssd_predictor
+from eva_storage.baselines.indexing.external.ssd.vision.datasets.voc_dataset import VOCDataset
+from eva_storage.baselines.indexing.external.ssd.vision.datasets.open_images import OpenImagesDataset
+from eva_storage.baselines.indexing.external.ssd.vision.utils import measurements
+from eva_storage.baselines.indexing.external.ssd.vision.utils.misc import str2bool
 import argparse
 import numpy as np
 import logging
 import sys
 
-from eva_storage.external.ssd.vision.utils import box_utils
+from eva_storage.baselines.indexing.external.ssd.vision.utils import box_utils
 
 
 
@@ -543,7 +544,7 @@ if __name__ == '__main__':
     results = torch.cat(results)
     for class_index, class_name in enumerate(class_names):
         if class_index == 0: continue  # ignore background
-        prediction_path = eval_path / f"det_test_{class_name}.txt"
+        prediction_path = os.path.join(eval_path, f"det_test_{class_name}.txt")
         with open(prediction_path, "w") as f:
             sub = results[results[:, 1] == class_index, :]
             for i in range(sub.size(0)):

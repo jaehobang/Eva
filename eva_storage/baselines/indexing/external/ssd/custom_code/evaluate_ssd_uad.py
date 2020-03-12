@@ -159,9 +159,11 @@ def compute_statistics(test_dataset, logger):
 
     true_case_stat, all_gb_boxes, all_difficult_cases = ssd_utils_custom.group_annotation_by_class(test_dataset)
     iou_threshold = 0.5
+    eval_path = '/nethome/jbang36/eva_jaeho/eva_storage/baselines/indexing/external/ssd/custom_code/evaluation'
 
     for class_index, class_name in enumerate(class_names):
         use_2007_metric = True
+        prediction_path = os.path.join(eval_path, f"det_test_{class_name}.txt")
 
         ap = ssd_utils_custom.compute_average_precision_per_class(
             true_case_stat[class_index],
