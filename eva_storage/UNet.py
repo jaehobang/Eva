@@ -9,7 +9,7 @@ import os
 import numpy as np
 from eva_storage.models.UNet_final import UNet_final
 from eva_storage.models.UNet_compressed import UNet_compressed
-from eva_storage.logger import Logger, LoggingLevel
+from logger import Logger, LoggingLevel
 
 
 import torch

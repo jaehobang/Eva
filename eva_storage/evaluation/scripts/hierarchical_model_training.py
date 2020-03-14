@@ -19,7 +19,7 @@ if __name__ == "__main__":
     from eva_storage.preprocessingModule import PreprocessingModule
     from eva_storage.UNet import UNet
     from eva_storage.postprocessingModule import PostprocessingModule
-    from eva_storage.logger import LoggingLevel, Logger
+    from logger import Logger
 
     loader = UADetracLoader()
     preprocess = PreprocessingModule()

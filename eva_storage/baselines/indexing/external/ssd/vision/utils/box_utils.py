@@ -268,7 +268,7 @@ def soft_nms(box_scores, score_threshold, sigma=0.5, top_k=-1):
 
     References:
         https://arxiv.org/abs/1704.04503
-        https://github.com/facebookresearch/Detectron/blob/master/detectron/utils/cython_nms.pyx
+        https://github.com/facebookresearch/Detectron/blob/master/detectron/history/cython_nms.pyx
 
     Args:
         box_scores (N, 5): boxes in corner-form and probabilities.

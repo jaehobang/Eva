@@ -2,7 +2,7 @@
 This file will contain all the custom_code functions
 """
 
-from eva_storage.logger import LoggingLevel, Logger
+from logger import LoggingLevel, Logger
 
 
 class Evaluator:

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from eva_storage.baselines.indexing.external.ssd.vision.utils import measurements
 from eva_storage.baselines.indexing.external.ssd.vision.utils import box_utils
-from eva_storage.logger import Logger
+from logger import Logger
 
 
 ##### UA-detrac loading functions ######

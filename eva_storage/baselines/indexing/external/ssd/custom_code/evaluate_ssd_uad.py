@@ -5,13 +5,12 @@ sys.path.append(home_dir)
 
 ## Need to load the modules
 from loaders.uadetrac_loader import UADetracLoader
-from eva_storage.logger import Logger
+from logger import Logger
 
 import os
 import itertools
 import time
 import torch
-from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import MultiStepLR
 
 from eva_storage.baselines.indexing.external.ssd.vision.utils.misc import freeze_net_layers

@@ -7,7 +7,7 @@ Expected output: list of indices corresponding to selected indexes
 
 """
 import numpy as np
-from eva_storage.logger import Logger
+from logger import Logger
 
 
 

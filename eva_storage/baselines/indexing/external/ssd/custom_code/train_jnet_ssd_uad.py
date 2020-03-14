@@ -5,10 +5,9 @@ sys.path.append(home_dir)
 
 ## Need to load the modules
 from loaders.uadetrac_loader import UADetracLoader
-from eva_storage.logger import Logger
+from logger import Logger
 
 import numpy as np
-import os
 import itertools
 import time
 import torch
@@ -26,11 +25,6 @@ from eva_storage.baselines.indexing.external.ssd.vision.ssd.config import vgg_ss
 from eva_storage.baselines.indexing.external.ssd.vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
 
 #from eva_storage.baselines.indexing.external.ssd.custom_code.util_ssd_uad import UADataset_lite, filter_input, overlap
-
-
-import config
-
-
 
 
 ## Because we need to do debugging mode, we will put everything on the cpu for now

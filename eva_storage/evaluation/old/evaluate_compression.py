@@ -3,7 +3,7 @@ This file is used to evaluate the compression method of the pipeline
 @Jaeho Bang
 """
 
-#import utils.helpers as helpers
+#import history.helpers as helpers
 from eva_storage.evaluation.old.evaluate_compression import *
 
 
