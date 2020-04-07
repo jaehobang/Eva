@@ -615,16 +615,18 @@ def detect_patches(img, shape='rectangle', mode=2):
     return boundRect
 
 
-def draw_patch(img, patches):
+def draw_patch(img, patch):
     # patch is [left, top, right, bottom]
     new_img = np.copy(img)
     color = (0, 0, 255)
-    if patches != None:
+    if patch != None:
         i = 0
-        cv2.rectangle(new_img, (int(patches[i][0]), int(patches[i][1])), \
-                      (int(patches[i][0] + patches[i][2]), int(patches[i][1] + patches[i][3])), color, 2)
+        cv2.rectangle(new_img, (int(patch[i][0]), int(patch[i][1])), \
+                      (int(patch[i][0] + patch[i][2]), int(patch[i][1] + patch[i][3])), color, 2)
 
     return new_img
+
+
 
 
 # img: img to draw the patches on
@@ -640,9 +642,23 @@ def draw_patches(img, patches, format='cv'):
 
     if format == 'ml':
         if patches != None:
+            box_count = 0
             for i in range(len(patches)):
+                patches_np = np.array(patches[i])
+                if np.any(patches_np < 0):
+                    print(f"patches values: {patches_np} Negative value exists, skipping.....")
+                    continue
+                if np.any(patches_np > img.shape[0]):
+                    print(f"img size is {img.shape}")
+                    print(f"patches values: {patches_np} Value greater than max, skipping.....")
+                    continue
+
+
                 cv2.rectangle(new_img, (int(patches[i][1]), int(patches[i][0])), \
                               (int(patches[i][3]), int(patches[i][2])), color, 2)
+                box_count += 1
+
+    print(f"Drawing {box_count} boxes")
 
     return new_img
 
