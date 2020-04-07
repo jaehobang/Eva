@@ -3,13 +3,10 @@ home_dir = '/home/jbang36/eva_jaeho'
 sys.path.append(home_dir)
 
 
-from others.amdegroot.utils.augmentations import SSDAugmentation
 from others.amdegroot.layers.modules import MultiBoxLoss
 from others.amdegroot.ssd import build_ssd
-import os
 import time
 import torch
-from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
@@ -20,13 +17,11 @@ import math
 
 from logger import Logger
 from others.amdegroot.data.__init__ import detection_collate
-from others.amdegroot.data.coco import COCO_ROOT, COCODetection
-from others.amdegroot.data.voc0712 import VOC_ROOT, VOCDetection
 from others.amdegroot.data.uad import UAD_ROOT, UADDetection
 from others.amdegroot.data.config import *
-from loaders.uadetrac_loader import UADetracLoader
 
 logger = Logger()
+
 
 
 def str2bool(v):
@@ -36,10 +31,8 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='UAD', choices=['UAD', 'VOC', 'COCO'],
+parser.add_argument('--dataset', default='JNET', choices=['JNET', 'UAD', 'VOC', 'COCO'],
                     type=str, help='VOC or COCO')
-parser.add_argument('--dataset_root', default=UAD_ROOT,
-                    help='Dataset root directory path')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
                     help='Pretrained base model')
 parser.add_argument('--batch_size', default=32, type=int,
@@ -52,8 +45,8 @@ parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--cuda', default=True, type=str2bool,
                     help='Use CUDA to train model')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
-                    help='initial learning rate')
+parser.add_argument('--lr', '--learning-rate', default=1e-6, type=float,
+                    help='initial learning rate') ### Try a smaller learning rate!
 parser.add_argument('--momentum', default=0.9, type=float,
                     help='Momentum value for optim')
 parser.add_argument('--weight_decay', default=5e-4, type=float,
@@ -69,7 +62,7 @@ args = parser.parse_args()
 ### TODO: Debugging parameters
 ### we won't be using cuda for debugging purposes!!
 use_gpu = True
-args.batch_size = 32
+args.batch_size = 16
 #args.cuda = False
 #args.batch_size = 1
 
@@ -89,41 +82,7 @@ if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
 
 
-def train():
-    if args.dataset == 'COCO':
-        if args.dataset_root == VOC_ROOT:
-            if not os.path.exists(COCO_ROOT):
-                parser.error('Must specify dataset_root if specifying dataset')
-            print("WARNING: Using default COCO dataset_root because " +
-                  "--dataset_root was not specified.")
-            args.dataset_root = COCO_ROOT
-        cfg = coco
-        dataset = COCODetection(root=args.dataset_root,
-                                transform=SSDAugmentation(cfg['min_dim'],
-                                                          MEANS))
-    elif args.dataset == 'VOC':
-        if args.dataset_root == COCO_ROOT:
-            parser.error('Must specify dataset if specifying dataset_root')
-        cfg = voc
-        dataset = VOCDetection(root=args.dataset_root,
-                               transform=SSDAugmentation(cfg['min_dim'],
-                                                         MEANS))
-
-    elif args.dataset == 'UAD':
-        logger.info("We are loading UADetrac!!")
-        cfg = uad
-        dataset = UADDetection(transform=SSDAugmentation(cfg['min_dim'], MEANS))
-        loader = UADetracLoader()
-        images = loader.load_cached_images(name='uad_train_images.npy', vi_name='uad_train_vi.npy')
-        boxes = loader.load_cached_boxes(name = 'uad_train_boxes.npy')
-        labels = loader.load_cached_labels(name = 'uad_train_labels.npy')
-        labels = labels['vehicle']
-        images, labels, boxes = loader.filter_input3(images, labels, boxes)
-        dataset.set_images(images)
-        dataset.set_labels(labels)
-        dataset.set_boxes(boxes)
-
-
+def train(dataset, cfg):
 
     if args.visdom:
         import visdom
@@ -139,10 +98,16 @@ def train():
     if args.resume:
         print('Resuming training, loading {}...'.format(args.resume))
         ssd_net.load_weights(args.resume)
+
+    """
+    I want to start from scratch this time !! 4/1/2020
+    
     else:
         vgg_weights = torch.load(args.save_folder + args.basenet)
         print('Loading base network...')
         ssd_net.vgg.load_state_dict(vgg_weights)
+
+    """
 
     if args.cuda:
         net = net.cuda()
@@ -249,7 +214,7 @@ def train():
 
             if iteration != 0 and iteration % 5000 == 0:
                 print('Saving state, iter:', iteration)
-                torch.save(ssd_net.state_dict(), 'weights/ssd300_UAD_' +
+                torch.save(ssd_net.state_dict(), 'weights/ssd300_JNET_UAD_' +
                            repr(iteration) + '.pth')
     torch.save(ssd_net.state_dict(),
                args.save_folder + '' + args.dataset + '.pth')
@@ -306,6 +271,13 @@ def update_vis_plot(iteration, loc, conf, window1, window2, update_type,
             update=True
         )
 
-
 if __name__ == '__main__':
-    train()
+    from others.amdegroot.data.create_dataset_wrapper import create_dataset
+
+    dataset, cfg = create_dataset('JNET', is_train=True, cache_name='jnet_train-200-300.npy')
+
+    ### we should define all the variables here...
+    train(dataset, cfg)
+
+
+

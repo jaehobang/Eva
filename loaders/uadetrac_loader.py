@@ -18,7 +18,7 @@ import warnings
 import argparse
 import time
 
-from eva_storage.logger import Logger, LoggingLevel
+from logger import Logger, LoggingLevel
 
 parser = argparse.ArgumentParser(description='Define arguments for loader')
 parser.add_argument('--image_path', default='small-data', help='Define data folder within eva/data/uadetrac')
@@ -182,6 +182,60 @@ class UADetracLoader(AbstractLoader):
         else:
             return None
 
+    ##### Updated 3/3/2020 -- Filters the image input because the loaded data can contain None
+
+    def filter_input3(self, images_train, labels_train, boxes_train):
+        length = len(images_train)
+
+        ## first determine count of non None frame
+        count = 0
+        for i in range(length):
+            if labels_train[i] is not None:
+                count += 1
+
+        new_images_train = np.ndarray(
+            shape=(count, images_train.shape[1], images_train.shape[2], images_train.shape[3]))
+        new_labels_train = []
+        new_boxes_train = []
+
+        index = 0
+        for i, elem in enumerate(labels_train):
+            if elem is not None:
+                new_images_train[index] = images_train[i]
+                index += 1
+                new_labels_train.append(elem)
+                new_boxes_train.append(boxes_train[i])
+
+        assert (len(new_images_train) == len(new_labels_train))
+        assert (len(new_images_train) == len(new_boxes_train))
+
+        return new_images_train, new_labels_train, new_boxes_train
+
+
+    def filter_input(self, labels_train, boxes_train):
+
+        length = len(labels_train)
+        ## first determine count of non None frame
+        count = 0
+        for i in range(length):
+            if labels_train[i] is not None:
+                count += 1
+
+
+        new_labels_train = []
+        new_boxes_train = []
+
+        for i, elem in enumerate(labels_train):
+            if elem is not None:
+                new_labels_train.append(elem)
+                new_boxes_train.append(boxes_train[i])
+
+        assert(len(new_labels_train) == len(new_boxes_train))
+
+        return new_labels_train, new_boxes_train
+
+
+
     def get_boxes(self):
         """
         This function must be run after load_labels
@@ -205,11 +259,11 @@ class UADetracLoader(AbstractLoader):
         return self.video_start_indices
 
 
-    def save_images(self):
+    def save_images(self, name = args.cache_image_name, vi_name = args.cache_vi_name):
         # we need to save the image / video start indexes
         # convert list to np.array
-        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_image_name)
-        save_dir_vi = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_vi_name)
+        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, name)
+        save_dir_vi = os.path.join(self.eva_dir, 'data', args.cache_path, vi_name)
         if self.images is None:
             self.logger.error("No image loaded, call load_images() first")
         elif type(self.images) is np.ndarray:
@@ -222,8 +276,8 @@ class UADetracLoader(AbstractLoader):
 
 
 
-    def save_labels(self):
-        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_label_name)
+    def save_labels(self, name=args.cache_label_name):
+        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, name)
         if self.labels is None:
             self.logger.error("No labels loaded, call load_labels() first")
 
@@ -236,8 +290,8 @@ class UADetracLoader(AbstractLoader):
 
 
 
-    def save_boxes(self):
-        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_box_name)
+    def save_boxes(self, name=args.cache_box_name):
+        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, name)
         if self.images is None:
             self.logger.error("No labels loaded, call load_boxes() first")
 
@@ -249,20 +303,20 @@ class UADetracLoader(AbstractLoader):
             self.logger.error("Labels type is not np....cannot save")
 
 
-    def load_cached_images(self):
-        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_image_name)
-        save_dir_vi = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_vi_name)
+    def load_cached_images(self, name=args.cache_image_name, vi_name=args.cache_vi_name):
+        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, name)
+        save_dir_vi = os.path.join(self.eva_dir, 'data', args.cache_path, vi_name)
         self.images = np.load(save_dir)
         self.video_start_indices = np.load(save_dir_vi)
         return self.images
 
-    def load_cached_boxes(self):
-        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_box_name)
+    def load_cached_boxes(self, name=args.cache_box_name):
+        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, name)
         self.boxes = np.load(save_dir, allow_pickle = True)
         return self.boxes
 
-    def load_cached_labels(self):
-        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, args.cache_label_name)
+    def load_cached_labels(self, name = args.cache_label_name):
+        save_dir = os.path.join(self.eva_dir, 'data', args.cache_path, name)
         labels_pickeled = np.load(save_dir, allow_pickle = True)
         self.labels = labels_pickeled.item()
         return self.labels
