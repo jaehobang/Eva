@@ -2,8 +2,8 @@
 from __future__ import annotations
 import time
 from sklearn.cluster import AgglomerativeClustering
-from eva_storage.logger import Logger
-from abc import ABCMeta, ABC, abstractmethod
+from logger import Logger
+from abc import ABC, abstractmethod
 
 # Assume you have compressed images: images_compressed
 # original_images -> images_compressed (output of the encoder network)

@@ -223,7 +223,7 @@ if __name__ == "__main__":
                             shuffle=True)
 
     ## train the model
-    ## let's just import utils and do all evaluations here?
+    ## let's just import history and do all evaluations here?
     import time
 
     st = time.time()

@@ -5,7 +5,7 @@ sys.path.append(home_dir)
 
 ## Need to load the modules
 from loaders.uadetrac_loader import UADetracLoader
-from eva_storage.logger import Logger
+from logger import Logger
 
 import os
 import itertools

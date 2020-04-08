@@ -12,8 +12,7 @@ import cv2
 import os
 import config
 import time
-from loaders.uadetrac_loader import UADetracLoader
-from eva_storage.logger import Logger, LoggingLevel
+from logger import Logger, LoggingLevel
 
 
 TIMED = True
