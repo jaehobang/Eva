@@ -18,7 +18,6 @@ from others.amdegroot.ssd import build_ssd
 from others.amdegroot.data.uad import UAD_ROOT, UADAnnotationTransform, UADDetection
 from others.amdegroot.data.uad import UAD_CLASSES as labelmap
 from others.amdegroot.data import BaseTransform
-from loaders.uadetrac_loader import UADetracLoader
 from logger import Logger
 
 
@@ -43,7 +42,7 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Evaluation')
 parser.add_argument('--trained_model',
-                    default='weights/ssd300_UAD_0408_90000.pth', type=str,
+                    default='weights/jnet_uad/ssd300_JNET_UAD_40000.pth', type=str,
                     help='Trained state_dict file path to open')
 parser.add_argument('--save_folder', default='eval/', type=str,
                     help='File path to save results')
@@ -59,6 +58,46 @@ parser.add_argument('--cleanup', default=True, type=str2bool,
                     help='Cleanup and remove results files following eval')
 
 args = parser.parse_args()
+
+
+
+
+
+"""
+
+let's say they are about 50k in terms of power -- that's like 5000 base.
+Currently jet provides about 1700
+If I max both skins, it's like 15k+ in magic damage
+
+Jet - currently have around 15k magic attack, give that much more
+If I max both skins, that's about 600+ in base crit, that means
+that's around 5~7 percent more than what it used to be.....
+
+so what this means, 
+at least 1 crit per attack = (1 - 0.75^5) = 76 percent
+at least 1 crit per attack = (1 - 0.68^5) = 85 percent
+
+1 crit per attack = (0.75^4 * 0.25 * 5) = 40 percent
+1 crit per attack = (0.68^4 * 0.32 * 5) = 34 percent
+
+2 crit per attack = (0.75^3 * 0.25^2 * 10) = 26 percent
+2 crit per attack = (0.68^3 * 0.32^2 * 10) = 32 percent
+
+
+
+
+
+Seb - 
+Neb - 14k attack
+
+if you upgrade crit, you get 45k more damage with 10 percent increased chance
+
+if you upgrade damage, you get 15k more damage
+
+
+"""
+
+
 
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
@@ -298,8 +337,8 @@ def group_annotation_by_class(dataset):
 
             nposes[label] += sum(relevant_boxes)
 
-    logger.info(all_class_recs)
-    logger.info(nposes)
+    #logger.info(all_class_recs)
+    #logger.info(nposes)
     return all_class_recs, nposes
 
 
@@ -451,6 +490,24 @@ def voc_eval(detpath, classname, class_recs, npos, ovthresh=0.5, use_07_metric=T
 
 
 if __name__ == '__main__':
+    ###variables we need to change
+    # traind SSD model
+    logger = Logger()
+
+
+    args.trained_model = 'weights/ssd300_UAD_0408_90000.pth'
+    # images we will deal with for evaluation
+    cache_name = 'uad_train_images.npy'
+    dataset_name = 'UAD'
+    is_train = True
+    #is_train = True
+    # output directory to save the results in
+    output_dir = 'ssd300_uad_0408'
+
+    logger.info(f"Loading trained model {args.trained_model}")
+    logger.info(f"Loading test images {cache_name}")
+    logger.info(f"Saving to directory {output_dir}")
+
     # load net
     num_classes = len(labelmap) + 1                      # +1 for background
     net = build_ssd('test', 300, num_classes)            # initialize SSD
@@ -458,24 +515,17 @@ if __name__ == '__main__':
     net.eval()
     print('Finished loading model!')
     # load data
-    loader = UADetracLoader()
 
-    images = loader.load_images(dir = os.path.join(home_dir, 'data', 'ua_detrac', '5_images'))
-    labels, boxes = loader.load_labels(dir = os.path.join(home_dir, 'data', 'ua_detrac', '5_xml'))
-    labels = labels['vehicle']
+    ## load the data
+    from others.amdegroot.data.create_dataset_wrapper import create_dataset
 
-    images, labels, boxes = loader.filter_input3(images, labels, boxes)
-
-
-    dataset = UADDetection(transform=BaseTransform(300, dataset_mean), target_transform=UADAnnotationTransform())
-    dataset.set_images(images)
-    dataset.set_labels(labels)
-    dataset.set_boxes(boxes)
+    dataset, cfg = create_dataset(dataset_name, is_train = is_train, cache_name = cache_name)
 
 
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
+
     # evaluation
     """
     Steps:
@@ -484,7 +534,7 @@ if __name__ == '__main__':
     3. Save the results in .txt
     4. Run the evaluation code by loading the txt files"""
 
-    output_dir = get_output_dir('ssd300_uad', set_type)
+    output_dir = get_output_dir(output_dir, set_type)
     box_list = detect_all_boxes(net, dataset, output_dir)
 
     ## TODO: we should examine the format of the box_list!!!
