@@ -8,6 +8,8 @@ from others.amdegroot.data.config import *
 from loaders.uadetrac_loader import UADetracLoader
 from logger import Logger
 
+import numpy as np
+
 
 
 available_datasets = {'COCO': COCO_ROOT
@@ -19,10 +21,49 @@ available_datasets = {'COCO': COCO_ROOT
 logger = Logger()
 
 
+def create_dataset2():
+    """
+    Concat the original images with output of the JNET to train the network
+    :return:
+    """
+
+    logger.info("We are loading UADetrac!!")
+    cfg = uad
+    dataset = UADDetection(transform=SSDAugmentation(cfg['min_dim'], MEANS))
+    loader = UADetracLoader()
+    images = loader.load_cached_images(name='uad_train_images.npy', vi_name='uad_train_vi.npy')
+    boxes = loader.load_cached_boxes(name='uad_train_boxes.npy')
+    labels = loader.load_cached_labels(name='uad_train_labels.npy')
+
+    labels = labels['vehicle']
+    images, labels, boxes = loader.filter_input3(images, labels, boxes)
+
+    images2 = loader.load_cached_images(name='jnet_train-200-300.npy', vi_name = 'uad_train_vi.npy')
+    boxes2 = loader.load_cached_boxes(name = 'uad_train_boxes.npy')
+    labels2 = loader.load_cached_labels(name = 'uad_train_labels.npy')
+    labels2 = labels2['vehicle']
+    images2, labels2, boxes2 = loader.filter_input3(images2, labels2, boxes2)
+
+    final_images = np.concatenate((images, images2), axis = 0)
+    final_boxes = np.concatenate((boxes, boxes2), axis = 0)
+    final_labels = np.concatenate((labels, labels2), axis = 0)
+
+    logger.info(f"original: {images.shape}, {len(labels)}, {len(boxes)}")
+    logger.info(f"final: {final_images.shape}, {final_boxes.shape}, {final_labels.shape}")
+
+
+    dataset.set_images(images)
+    dataset.set_labels(labels)
+    dataset.set_boxes(boxes)
+
+
+    return dataset, cfg
+
+
 
 def create_dataset(dataset_name, is_train=None, cache_name = None):
     if dataset_name not in available_datasets.keys():
-        logger.error(f"dataset: {dataset_name} not in {vailable_datasets.keys()}")
+        logger.error(f"dataset: {dataset_name} not in {available_datasets.keys()}")
 
     if (dataset_name is 'UAD' or dataset_name is 'JNET') and (is_train is None):
         logger.error(f"Must specify training or testing for UAD and JNET!")

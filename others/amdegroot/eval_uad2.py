@@ -298,8 +298,8 @@ def group_annotation_by_class(dataset):
 
             nposes[label] += sum(relevant_boxes)
 
-    logger.info(all_class_recs)
-    logger.info(nposes)
+    #logger.info(all_class_recs)
+    #logger.info(nposes)
     return all_class_recs, nposes
 
 
@@ -453,25 +453,41 @@ def voc_eval(detpath, classname, class_recs, npos, ovthresh=0.5, use_07_metric=T
 if __name__ == '__main__':
     # load net
     #args.trained_model = 'weights/sadfasdfasdf'
+
+    ## gpu fix
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+
+
     """
     This file is the optimized version of eval_uad
     eval_uad now works"""
+    args.trained_model = 'weights/ssd300_JNET_UAD_95000.pth'
 
 
     num_classes = len(labelmap) + 1                      # +1 for background
     net = build_ssd('test', 300, num_classes)            # initialize SSD
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
-    print('Finished loading model!')
+    logger.info(f"Loaded model {args.trained_model}")
     # load data
     loader = UADetracLoader()
 
     #images = loader.load_images(dir = os.path.join(home_dir, 'data', 'ua_detrac', '5_images'))
     #labels, boxes = loader.load_labels(dir = os.path.join(home_dir, 'data', 'ua_detrac', '5_xml'))
 
-    images = loader.load_cached_images(name = 'uad_test_images.npy', vi_name = 'uad_test_vi.npy')
+
+    ### uad test
+    #images = loader.load_cached_images(name = 'uad_test_images.npy', vi_name = 'uad_test_vi.npy')
+    #labels = loader.load_cached_labels(name = 'uad_test_labels.npy')
+    #boxes = loader.load_cached_boxes(name = 'uad_test_boxes.npy')
+
+    ### jnet_test
+    images = loader.load_cached_images(name = 'jnet_test-200-300.npy', vi_name = 'uad_test_vi.npy')
     labels = loader.load_cached_labels(name = 'uad_test_labels.npy')
     boxes = loader.load_cached_boxes(name = 'uad_test_boxes.npy')
+
+
     labels = labels['vehicle']
 
     images, labels, boxes = loader.filter_input3(images, labels, boxes)

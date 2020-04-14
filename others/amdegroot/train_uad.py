@@ -68,8 +68,11 @@ args = parser.parse_args()
 
 ### TODO: Debugging parameters
 ### we won't be using cuda for debugging purposes!!
+args.dataset = 'UAD'
 use_gpu = True
 args.batch_size = 32
+save_dir = 'weights/ssd300_UAD_0408_'
+args.lr = 1e-3
 #args.cuda = False
 #args.batch_size = 1
 
@@ -247,9 +250,9 @@ def train():
                 update_vis_plot(iteration, loss_l.item(), loss_c.item(),
                                 iter_plot, epoch_plot, 'append')
 
-            if iteration != 0 and iteration % 5000 == 0:
+            if iteration != 0 and iteration % 10000 == 0:
                 print('Saving state, iter:', iteration)
-                torch.save(ssd_net.state_dict(), 'weights/ssd300_UAD_' +
+                torch.save(ssd_net.state_dict(), save_dir +
                            repr(iteration) + '.pth')
     torch.save(ssd_net.state_dict(),
                args.save_folder + '' + args.dataset + '.pth')

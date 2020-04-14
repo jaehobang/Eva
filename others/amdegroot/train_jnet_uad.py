@@ -45,7 +45,7 @@ parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--cuda', default=True, type=str2bool,
                     help='Use CUDA to train model')
-parser.add_argument('--lr', '--learning-rate', default=1e-6, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     help='initial learning rate') ### Try a smaller learning rate!
 parser.add_argument('--momentum', default=0.9, type=float,
                     help='Momentum value for optim')
@@ -62,9 +62,10 @@ args = parser.parse_args()
 ### TODO: Debugging parameters
 ### we won't be using cuda for debugging purposes!!
 use_gpu = True
-args.batch_size = 16
+args.batch_size = 32
 #args.cuda = False
 #args.batch_size = 1
+save_name = 'weights/ssd300_JNET_UAD'
 
 
 
@@ -213,8 +214,8 @@ def train(dataset, cfg):
                                 iter_plot, epoch_plot, 'append')
 
             if iteration != 0 and iteration % 5000 == 0:
-                print('Saving state, iter:', iteration)
-                torch.save(ssd_net.state_dict(), 'weights/ssd300_JNET_UAD_' +
+                print(f'Saving state as {save_name + str(iteration)}.pth, iter: {iteration}')
+                torch.save(ssd_net.state_dict(), save_name +
                            repr(iteration) + '.pth')
     torch.save(ssd_net.state_dict(),
                args.save_folder + '' + args.dataset + '.pth')
@@ -272,9 +273,14 @@ def update_vis_plot(iteration, loc, conf, window1, window2, update_type,
         )
 
 if __name__ == '__main__':
-    from others.amdegroot.data.create_dataset_wrapper import create_dataset
+    from others.amdegroot.data.create_dataset_wrapper import create_dataset, create_dataset2
 
-    dataset, cfg = create_dataset('JNET', is_train=True, cache_name='jnet_train-200-300.npy')
+    #dataset, cfg = create_dataset('JNET', is_train=True, cache_name='jnet_train-200-300.npy')
+
+    ### we will actually load the dataset ourselves and concatenate them to use for training
+    dataset, cfg = create_dataset2()
+
+
 
     ### we should define all the variables here...
     train(dataset, cfg)
